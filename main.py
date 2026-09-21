@@ -83,9 +83,6 @@ class Player(Entity): # TODO: add movement
 
         self.position += self.speed
 
-
-
-
 class World:
     frame_timer: int
     platforms: list[Platform]
@@ -234,6 +231,8 @@ def main():
 
     pygame.display.set_caption("pygame")
 
+    player = Player()
+    
 
     running = True
     while running:
