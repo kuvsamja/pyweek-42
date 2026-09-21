@@ -8,7 +8,6 @@ from pygame.sprite import LayeredUpdates
 class Platform (pygame.sprite.Sprite):
     position: pygame.Vector2
     size: pygame.Vector2
-    z_index: int
     def __init__(self, pos_x: float, pos_y: float, width: float, height: float, z_index:int,  file_name: str):
         self.position = pygame.Vector2(pos_x, pos_y)
         self.size = pygame.Vector2(width, height)
@@ -31,7 +30,14 @@ class Entity(pygame.sprite.Sprite):
     speed: pygame.Vector2
     gravity: float
     dead: bool
-    def __init__(self, x:int, y:int, width:int, height:int, z_index:int, file_name: str):
+    def __init__(self, x:int, y:int, z_index:int, file_name: str):
+
+        # image loading
+        image_path = os.path.join("assets", file_name)
+        self.image = pygame.image.load(image_path).convert_alpha()
+        width = self.image.width
+        height = self.image.height
+        # other stuff
         self.position = pygame.Vector2(x, y)
         self.size = pygame.Vector2(width, height)
         self.rect = pygame.Rect(0, 0, width, height)
@@ -41,9 +47,6 @@ class Entity(pygame.sprite.Sprite):
         self.speed = pygame.Vector2(0, 0)
         self.gravity = 1
         self.animation_state = self.AnimationState.IDLE
-        # image loading
-        image_path = os.path.join("assets", file_name)
-        self.image = pygame.image.load(image_path).convert_alpha()
 
     # sets camera-space coordinates to (x,y)
     def setCameraPosition(self, x, y):
