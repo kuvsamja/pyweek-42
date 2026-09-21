@@ -1,15 +1,24 @@
+import os
 from enum import Enum, auto
+
 import pygame
+from pygame.sprite import LayeredUpdates
 
 
-class Platform:
+class Platform (pygame.sprite.Sprite):
     position: pygame.Vector2
     size: pygame.Vector2
-    def __init__(self, pos_x: float, pos_y: float, width: float, height: float):
+    z_index: int
+    def __init__(self, pos_x: float, pos_y: float, width: float, height: float, z_index:int,  file_name: str):
         self.position = pygame.Vector2(pos_x, pos_y)
         self.size = pygame.Vector2(width, height)
+        self.rect = pygame.Rect(pos_x, pos_y, width, height)
+        self._layer = z_index
+        # image loading
+        image_path = os.path.join("assets", file_name)
+        self.image = pygame.image.load(image_path).convert_alpha()
 
-class Entity:
+class Entity(pygame.sprite.Sprite):
     class AnimationState(Enum): # TODO: animaton handling
         IDLE = auto()
         WALKING = auto()
@@ -21,13 +30,20 @@ class Entity:
     size: pygame.Vector2
     speed: pygame.Vector2
     gravity: float
-
-    def __init__(self, x, y, width, height):
+    def __init__(self, x:int, y:int, width:int, height:int, z_index:int, file_name: str):
         self.position = pygame.Vector2(x, y)
         self.size = pygame.Vector2(width, height)
+        self.rect = pygame.Rect(0, 0, width, height)
+        self._layer = z_index
         self.speed = pygame.Vector2(0, 0)
         self.gravity = 1
         self.animation_state = self.AnimationState.IDLE
+        # image loading
+        image_path = os.path.join("assets", file_name)
+        self.image = pygame.image.load(image_path).convert_alpha()
+    # sets camera-space coordinates to (x,y)
+    def setCameraPosition(self, x, y):
+        self.rect = pygame.Rect(x, y, self.size.x, self.size.y)
 class Enemy(Entity):
     pass
 class Player(Entity): # TODO: add movement
@@ -38,16 +54,20 @@ class World:
     platforms: list[Platform]
     enemies: list[Enemy] # TODO: add proper enemy killing
     player: Player
+    all_sprites: pygame.sprite.LayeredUpdates
+
     def __init__(self, player: Player):
         self.platforms = []
         self.player = player
         self.frame_timer = 0
-
+        self.all_sprites = pygame.sprite.LayeredUpdates()
+        self.all_sprites.add(player)
     def addPlatform(self, platform: Platform):
         self.platforms.append(platform)
+        self.all_sprites.add(platform)
     def addEnemy(self, enemy: Enemy):
         self.enemies.append(enemy)
-
+        self.all_sprites.add(enemy)
     def enemyCollision(self):
         pass
     def playerCollision(self):
@@ -71,7 +91,7 @@ class Margins:
         self.right = right
 
 class Camera:
-    def __init__(self, x, y, world_width, world_height, pixel_width, pixel_height, world: World):
+    def __init__(self, x, y, world_width, world_height, pixel_width, pixel_height, world: World, window: pygame.Surface):
         self.world_width = world_width
         self.world_height = world_height  #height in world units
         self.pixel_width = pixel_width
@@ -82,9 +102,10 @@ class Camera:
         self.deadzone = Margins(100, 50, 100, 100)
         self.camera_follow_speed = 3
         self.world = world
+        self.window = window
 
-    # def draw():
-
+    def update(self):
+        self.world.all_sprites.draw(self.window)
 
     def moveCamera(self):
         # deadzone
