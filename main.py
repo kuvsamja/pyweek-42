@@ -9,6 +9,7 @@ class Platform (pygame.sprite.Sprite):
     position: pygame.Vector2
     size: pygame.Vector2
     def __init__(self, pos_x: float, pos_y: float, width: float, height: float, z_index:int,  file_name: str):
+        super().__init__()
         self.position = pygame.Vector2(pos_x, pos_y)
         self.size = pygame.Vector2(width, height)
         self.rect = pygame.Rect(pos_x, pos_y, width, height)
@@ -31,12 +32,12 @@ class Entity(pygame.sprite.Sprite):
     gravity: float
     dead: bool
     def __init__(self, x:int, y:int, z_index:int, file_name: str):
-
+        super().__init__()
         # image loading
         image_path = os.path.join("assets", file_name)
         self.image = pygame.image.load(image_path).convert_alpha()
-        self.width = self.image.width
-        self.height = self.image.height
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
         # other stuff
         self.position = pygame.Vector2(x, y)
         self.size = pygame.Vector2(self.width, self.height)
@@ -56,7 +57,8 @@ class Entity(pygame.sprite.Sprite):
 class Enemy(Entity):
     pass
 class Player(Entity): # TODO: add movement
-    def __init__(self, x, y):
+    def __init__(self, x, y, z_index, file_name):
+        super().__init__(x, y, z_index, file_name)
         width = super().width
         height = super().height
         self.position = pygame.Vector2(x, y)
