@@ -17,6 +17,9 @@ class Platform (pygame.sprite.Sprite):
         # image loading
         image_path = os.path.join("assets", file_name)
         self.image = pygame.image.load(image_path).convert_alpha()
+        
+    def setCameraPosition(self, x, y, w, h):
+        self.rect = pygame.Rect(x, y, w, h)
 
 class Entity(pygame.sprite.Sprite):
     class AnimationState(Enum): # TODO: animaton handling
@@ -31,7 +34,7 @@ class Entity(pygame.sprite.Sprite):
     speed: pygame.Vector2
     gravity: float
     dead: bool
-    def __init__(self, x:int, y:int, z_index:int, file_name: str):
+    def __init__(self, x: int, y: int, z_index: int, file_name: str):
         super().__init__()
         # image loading
         image_path = os.path.join("assets", file_name)
@@ -50,25 +53,20 @@ class Entity(pygame.sprite.Sprite):
         self.animation_state = self.AnimationState.IDLE
 
     # sets camera-space coordinates to (x,y)
-    def setCameraPosition(self, x, y):
-        self.rect = pygame.Rect(x, y, self.size.x, self.size.y)
-
+    def setCameraPosition(self, x, y, w, h):
+        self.rect = pygame.Rect(x, y, w, h)
 
 class Enemy(Entity):
     pass
 class Player(Entity): # TODO: add movement
     def __init__(self, x, y, z_index, file_name):
         super().__init__(x, y, z_index, file_name)
-        width = super().width
-        height = super().height
-        self.position = pygame.Vector2(x, y)
-        self.size = pygame.Vector2(width, height)
         self.speed = pygame.Vector2(0, 0)
         self.gravity = 1
         self.animation_state = self.AnimationState.IDLE
         self.dead = False
 
-        self.movement_speed = 4
+        self.movement_speed = 0.1
         self.grounded = False
         self.gravity = 20
         self.jump_timer = 0
@@ -79,10 +77,9 @@ class Player(Entity): # TODO: add movement
 
     def move(self, buttons):
         self.speed.x = 0
-        self.speed.y -= self.gravity
+        # self.speed.y -= self.gravity
         if self.grounded == 0:
             self.speed.y = max(0, self.speed.y);
-
         if buttons[pygame.K_a]:
             self.speed.x -= self.movement_speed
         if buttons[pygame.K_d]:
@@ -178,20 +175,31 @@ class Camera:
         self.pixel_height = pixel_height
         self.x = x
         self.y = y
-        self.softzone = Margins(150, 75, 300, 300)
-        self.deadzone = Margins(100, 50, 100, 100)
+        self.softzone = Margins(15, 8, 30, 30)
+        self.deadzone = Margins(10, 5, 10, 10)
         self.camera_follow_speed = 3
         self.world = world
         self.window = window
 
     def update(self):
+        scale_x = self.pixel_width / self.world_width
+        scale_y = self.pixel_height / self.world_height
+        for sprite in self.world.all_sprites:
+            pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
+            sprite.setCameraPosition(
+                pos.x,
+                pos.y,
+                sprite.size.x * scale_x,
+                sprite.size.y * scale_y
+            )
         self.world.all_sprites.draw(self.window)
 
     def pointToScreen(self, point: pygame.Vector2) -> pygame.Vector2:
-        point -= pygame.Vector2(self.x, self.y)
-        point.x /= self.world_width
-        point.y /= self.world_height
-        return point
+        offset_point = point - pygame.Vector2(self.x, self.y)
+        
+        screen_x = (offset_point.x / self.world_width) * self.pixel_width
+        screen_y = (offset_point.y / self.world_height) * self.pixel_height
+        return pygame.Vector2(screen_x, screen_y)
 
 
     def moveCamera(self):
@@ -227,19 +235,22 @@ class Camera:
 
 
 def main():
-    WINDOW_WIDTH = 1920
-    WINDOW_HEIGHT = 1080
+    WINDOW_WIDTH = 400
+    WINDOW_HEIGHT = 300
 
     pygame.init()
     window = pygame.display.set_mode(
         (WINDOW_WIDTH, WINDOW_HEIGHT),
-        pygame.RESIZABLE
     )
 
     pygame.display.set_caption("pygame")
 
-    player = Player()
+    player = Player(0, 0, 0, "debug-platform-16x16.png")
+    world = World(player)
 
+    camera = Camera(0, 0, 100, 75, 400, 300, world, window)
+    
+    
 
     running = True
     while running:
@@ -247,9 +258,13 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-
         buttons = pygame.key.get_pressed()
+        world.advancePhysics(buttons)
+        camera.moveCamera()
+        camera.update()
 
+        
+        pygame.display.flip()
 
 
 if __name__ == "__main__":
