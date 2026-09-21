@@ -30,34 +30,72 @@ class Entity(pygame.sprite.Sprite):
     size: pygame.Vector2
     speed: pygame.Vector2
     gravity: float
+    dead: bool
     def __init__(self, x:int, y:int, width:int, height:int, z_index:int, file_name: str):
         self.position = pygame.Vector2(x, y)
         self.size = pygame.Vector2(width, height)
         self.rect = pygame.Rect(0, 0, width, height)
         self._layer = z_index
+
+        self.dead = False
         self.speed = pygame.Vector2(0, 0)
         self.gravity = 1
         self.animation_state = self.AnimationState.IDLE
         # image loading
         image_path = os.path.join("assets", file_name)
         self.image = pygame.image.load(image_path).convert_alpha()
+
     # sets camera-space coordinates to (x,y)
     def setCameraPosition(self, x, y):
         self.rect = pygame.Rect(x, y, self.size.x, self.size.y)
+
+
 class Enemy(Entity):
     pass
 class Player(Entity): # TODO: add movement
-    pass
+    def __init__(self, x, y, width, height):
+        self.position = pygame.Vector2(x, y)
+        self.size = pygame.Vector2(width, height)
+        self.speed = pygame.Vector2(0, 0)
+        self.gravity = 1
+        self.animation_state = self.AnimationState.IDLE
+        self.dead = False
+
+        self.movement_speed = 4
+        self.grounded = False
+        self.gravity = 20
+        self.jump_timer = 0
+        self.jump_speed = 5
+        self.jump_time = 30 # max time to hold a jump
+        self.head_clipping = False
+        self.can_jump = False
+
+    def move(self, buttons):
+        self.speed.x = 0
+        self.speed.y -= self.gravity
+        if self.grounded == 0:
+            self.speed.y = max(0, self.speed.y);
+
+        if buttons[pygame.K_a]:
+            self.speed.x -= self.movement_speed
+        if buttons[pygame.K_d]:
+            self.speed.x += self.movement_speed
+
+        self.position += self.speed
+
+
+
 
 class World:
     frame_timer: int
     platforms: list[Platform]
-    enemies: list[Enemy] # TODO: add proper enemy killing
+    enemies: list[Enemy]
     player: Player
     all_sprites: pygame.sprite.LayeredUpdates
 
     def __init__(self, player: Player):
         self.platforms = []
+        self.enemies = []
         self.player = player
         self.frame_timer = 0
         self.all_sprites = pygame.sprite.LayeredUpdates()
@@ -68,20 +106,58 @@ class World:
     def addEnemy(self, enemy: Enemy):
         self.enemies.append(enemy)
         self.all_sprites.add(enemy)
+
+
+    @staticmethod
+    def entityPlatformCollision(platform: Platform, entity: Entity):
+        return (platform.position.x < entity.position.x + entity.size.x and
+            platform.position.x + platform.size.x > entity.position.x and
+                platform.position.y < entity.position.y + entity.size.y and
+                platform.position.y + platform.size.y > entity.position.y)
+
+    def playerCollision(self):
+        self.player.grounded = False
+        self.player.head_clipping = False
+
+        for platform in self.platforms:
+            if not self.entityPlatformCollision(platform, self.player):
+                continue
+            overlap_x = min(
+                            (self.player.position.x + self.player.size.x) - platform.position.x,
+                            (platform.position.x + platform.size.x) - self.player.position.x
+                        )
+            overlap_y = min(
+                (self.player.position.y + self.player.size.y) - platform.position.y,
+                (platform.position.y + platform.size.y) - self.player.position.y
+            )
+            if overlap_x < overlap_y:
+                if self.player.position.x < platform.position.x:
+                    self.player.position.x -= overlap_x
+                else:
+                    self.player.position.x += overlap_x
+            else:
+                if self.player.position.y < platform.position.y:
+                    self.player.position.y -= overlap_y
+                    self.player.grounded = True
+                else:
+                    self.player.position.y += overlap_y
+                    self.player.head_clipping = True
+            # TODO: ADD PROPER COLLISION PUSHING INVOLVING DX AND DY
+
+
+
     def enemyCollision(self):
         pass
-    def playerCollision(self):
-        pass
-
 
     def handleCollisions(self):
         self.enemyCollision()
         self.playerCollision()
 
-    def advancePhysics(self): # TODO: make this move the player and perform collision checks
-        pass
+    def advancePhysics(self, buttons): # TODO: make this move the player and perform collision checks
+        self.enemies = [e for e in self.enemies if not e.dead]
 
-# TODO: add a camera class
+        self.player.move(buttons)
+        self.handleCollisions()
 
 class Margins:
     def __init__(self, up, down, left, right):
@@ -107,33 +183,42 @@ class Camera:
     def update(self):
         self.world.all_sprites.draw(self.window)
 
+    def pointToScreen(self, point: pygame.Vector2) -> pygame.Vector2:
+        point -= pygame.Vector2(self.x, self.y)
+        point.x /= self.world_width
+        point.y /= self.world_height
+        return point
+
+
     def moveCamera(self):
+        player = self.world.player
+
         # deadzone
         ## right
-        if self.world.player.size.x - self.x + self.world.player.size.x > self.world_width - self.deadzone.right:
-            self.x = self.world.player.size.x - self.world_width + self.world.player.size.x + self.deadzone.right
+        if player.position.x - self.x + player.size.x > self.world_width - self.deadzone.right:
+            self.x = player.position.x - self.world_width + player.size.x + self.deadzone.right
         ## left
-        if self.world.player.size.x - self.x < self.deadzone.left:
-            self.x = self.world.player.size.x - self.deadzone.left
+        if player.position.x - self.x < self.deadzone.left:
+            self.x = player.position.x - self.deadzone.left
         ## down
-        if self.world.player.position.y - self.y + self.world.player.size.y > self.world_height - self.deadzone.down:
-            self.y = self.world.player.position.y - self.world_height + self.world.player.size.y + self.deadzone.down
-        ##up
-        if self.world.player.position.y - self.y < self.deadzone.up:
-            self.y = self.world.player.position.y - self.deadzone.up
+        if player.position.y - self.y + player.size.y > self.world_height - self.deadzone.down:
+            self.y = player.position.y - self.world_height + player.size.y + self.deadzone.down
+        ## up
+        if player.position.y - self.y < self.deadzone.up:
+            self.y = player.position.y - self.deadzone.up
 
         # softzone
         ## right
-        if self.world.player.size.x - self.x + self.world.player.size.x > self.world_width - self.softzone.right:
+        if player.position.x - self.x + player.size.x > self.world_width - self.softzone.right:
             self.x += self.camera_follow_speed
         ## left
-        if self.world.player.size.x - self.x < self.softzone.left:
+        if player.position.x - self.x < self.softzone.left:
             self.x -= self.camera_follow_speed
         ## down
-        if self.world.player.position.y - self.y + self.world.player.size.y > self.world_height - self.softzone.down:
+        if player.position.y - self.y + player.size.y > self.world_height - self.softzone.down:
             self.y += self.camera_follow_speed
-        ##up
-        if self.world.player.position.y - self.y < self.softzone.up:
+        ## up
+        if player.position.y - self.y < self.softzone.up:
             self.y -= self.camera_follow_speed
 
 
@@ -156,6 +241,8 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
+
+        buttons = pygame.key.get_pressed()
 
 
 
