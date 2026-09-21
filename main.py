@@ -35,12 +35,12 @@ class Entity(pygame.sprite.Sprite):
         # image loading
         image_path = os.path.join("assets", file_name)
         self.image = pygame.image.load(image_path).convert_alpha()
-        width = self.image.width
-        height = self.image.height
+        self.width = self.image.width
+        self.height = self.image.height
         # other stuff
         self.position = pygame.Vector2(x, y)
-        self.size = pygame.Vector2(width, height)
-        self.rect = pygame.Rect(0, 0, width, height)
+        self.size = pygame.Vector2(self.width, self.height)
+        self.rect = pygame.Rect(0, 0, self.width, self.height)
         self._layer = z_index
 
         self.dead = False
@@ -56,7 +56,9 @@ class Entity(pygame.sprite.Sprite):
 class Enemy(Entity):
     pass
 class Player(Entity): # TODO: add movement
-    def __init__(self, x, y, width, height):
+    def __init__(self, x, y):
+        width = super().width
+        height = super().height
         self.position = pygame.Vector2(x, y)
         self.size = pygame.Vector2(width, height)
         self.speed = pygame.Vector2(0, 0)
@@ -235,7 +237,7 @@ def main():
     pygame.display.set_caption("pygame")
 
     player = Player()
-    
+
 
     running = True
     while running:
