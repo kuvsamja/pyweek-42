@@ -24,20 +24,22 @@ class Entity(pygame.sprite.Sprite):
         WALKING = auto()
         RUNNING = auto()
         AIRBORNE = auto()
-
     animation_state: AnimationState
     position: pygame.Vector2
     size: pygame.Vector2
     speed: pygame.Vector2
     gravity: float
     dead: bool
-    def __init__(self, x:int, y:int, z_index:int, file_name: str):
+    animation_frames: list[list[pygame.Surface]]
+    def get_image(self, sheet, x, y, width, height):
+        rect = pygame.Rect(x, y, width, height)
+        image = sheet.subsurface(rect)
+        return image
+    def __init__(self, x:int, y:int, z_index:int, name: str, sprite_width: int, sprite_height: int):
         super().__init__()
         # image loading
-        image_path = os.path.join("assets", file_name)
-        self.image = pygame.image.load(image_path).convert_alpha()
-        self.width = self.image.get_width()
-        self.height = self.image.get_height()
+        self.width = sprite_width
+        self.height = sprite_height
         # other stuff
         self.position = pygame.Vector2(x, y)
         self.size = pygame.Vector2(self.width, self.height)
@@ -48,17 +50,42 @@ class Entity(pygame.sprite.Sprite):
         self.speed = pygame.Vector2(0, 0)
         self.gravity = 1
         self.animation_state = self.AnimationState.IDLE
-
+        self.animation_frequency = 3 # update every 3 frames (3/60)
+        self.frame_counter = 0
+        self.animation_frames = [[] for _ in range(len(self.AnimationState))]
+        for state in self.AnimationState:
+            spritesheet_path = name + "_" + state.name + ".png"
+            image_path = os.path.join("assets", spritesheet_path)
+            if not os.path.exists(image_path):
+                print(f"Didn't find asset at: {image_path}")
+                continue
+            spritesheet = pygame.image.load(image_path).convert_alpha()
+            image_count = spritesheet.get_width() // sprite_width
+            tup = [(sprite_width * x, 0, sprite_width, sprite_height) for x in range(image_count)]
+            self.animation_frames[state.value] = [self.get_image(spritesheet, *frame) for frame in tup]
+        if len(self.animation_frames[self.AnimationState.IDLE.value]) == 0:
+            raise FileNotFoundError(f"There is no IDLE animation spritesheet for Entity {name}! I looked at path: {os.path.join("assets", name+"_IDLE.png")}")
+        self.image = self.animation_frames[self.AnimationState.IDLE.value][0]
     # sets camera-space coordinates to (x,y)
     def setCameraPosition(self, x, y):
         self.rect = pygame.Rect(x, y, self.size.x, self.size.y)
-
-
+    def update(self):
+        self.frame_counter += 1
+        if self.frame_counter % self.animation_frequency != 0:
+            return
+        animation_duration = len(self.animation_frames[self.animation_state.value])
+        self.frame_counter %= self.animation_frequency * animation_duration
+        frame_id = self.frame_counter // self.animation_frequency
+        self.image = self.animation_frames[self.animation_state.value][frame_id]
+    def setAnimationState(self, new_animation_state: AnimationState):
+        self.frame_counter = 0
+        self.animation_state = new_animation_state
+        self.image = self.animation_frames[new_animation_state.value][0]
 class Enemy(Entity):
     pass
 class Player(Entity): # TODO: add movement
-    def __init__(self, x, y, z_index, file_name):
-        super().__init__(x, y, z_index, file_name)
+    def __init__(self, x, y, z_index):
+        super().__init__(x, y, z_index, "player", 48, 48) # player sprite size is 48x48
         width = super().width
         height = super().height
         self.position = pygame.Vector2(x, y)
@@ -185,6 +212,7 @@ class Camera:
         self.window = window
 
     def update(self):
+        self.world.all_sprites.update()
         self.world.all_sprites.draw(self.window)
 
     def pointToScreen(self, point: pygame.Vector2) -> pygame.Vector2:
