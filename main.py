@@ -26,8 +26,8 @@ class Platform (pygame.sprite.Sprite):
         image_path = os.path.join("assets", file_name)
         self.image = pygame.image.load(image_path).convert_alpha()
 
-    def setCameraPosition(self, x, y, w, h):
-        self.rect = pygame.Rect(x, y, w, h)
+    def setCameraPosition(self, x, y):
+        self.rect = pygame.Rect(x, y, self.width, self.height)
 
 class Entity(pygame.sprite.Sprite):
     class AnimationState(Enum): # TODO: animaton handling
@@ -301,9 +301,10 @@ class Camera:
                 )
                 scaled_w = int(sprite.size.x * scale_x)
                 scaled_h = int(sprite.size.y * scale_y)
-                for animation in sprite.animation_frames:
-                    for i, frame in enumerate(animation):
-                        animation[i] = pygame.transform.scale(frame, (scaled_w, scaled_h)) # TODO: make this run only once per screen resize and also make it work on future spritesheets
+                if isinstance(sprite, Entity):
+                    for animation in sprite.animation_frames:
+                        for i, frame in enumerate(animation):
+                            animation[i] = pygame.transform.scale(frame, (scaled_w, scaled_h)) # TODO: make this run only once per screen resize and also make it work on future spritesheets
             self.resize = False
         self.world.all_sprites.update()
         self.world.all_sprites.draw(self.window)
