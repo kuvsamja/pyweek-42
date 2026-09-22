@@ -38,7 +38,8 @@ class Entity(pygame.sprite.Sprite):
         super().__init__()
         # image loading
         image_path = os.path.join("assets", file_name)
-        self.image = pygame.image.load(image_path).convert_alpha()
+        self.source_image = pygame.image.load(image_path).convert_alpha()
+        self.image = self.source_image
         self.width = self.image.get_width()
         self.height = self.image.get_height()
         # other stuff
@@ -192,6 +193,9 @@ class Camera:
                 sprite.size.x * scale_x,
                 sprite.size.y * scale_y
             )
+            scaled_w = int(sprite.size.x * scale_x)
+            scaled_h = int(sprite.size.y * scale_y)
+            sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h)) # TODO: make this run only once per screen resize and also make it work on future spritesheets
         self.world.all_sprites.draw(self.window)
 
     def pointToScreen(self, point: pygame.Vector2) -> pygame.Vector2:
@@ -235,8 +239,8 @@ class Camera:
 
 
 def main():
-    WINDOW_WIDTH = 400
-    WINDOW_HEIGHT = 300
+    WINDOW_WIDTH = 1920
+    WINDOW_HEIGHT = 1080
 
     pygame.init()
     window = pygame.display.set_mode(
@@ -245,10 +249,10 @@ def main():
 
     pygame.display.set_caption("pygame")
 
-    player = Player(0, 0, 0, "debug-platform-16x16.png")
+    player = Player(0, 0, 0, "debug-platform-48x48.png")
     world = World(player)
 
-    camera = Camera(0, 0, 100, 75, 400, 300, world, window)
+    camera = Camera(0, 0, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, window)
     
     
 
@@ -258,6 +262,7 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
+        window.fill((0, 0, 0))
         buttons = pygame.key.get_pressed()
         world.advancePhysics(buttons)
         camera.moveCamera()
@@ -265,7 +270,7 @@ def main():
 
         
         pygame.display.flip()
-
+        pygame.time.delay(16)
 
 if __name__ == "__main__":
     main()
