@@ -35,7 +35,7 @@ class DamageBox:
     box: pygame.Rect
     owner: Owner
     alive_time: int # how long the box lingers in frames
-    
+
     def __init__(self, x, y, w, h, owner: Owner, alive_time: int):
         self.box = pygame.Rect(x, y, w, h)
         self.owner = owner
@@ -44,17 +44,18 @@ class DamageBox:
     def tick(self):
         """decreases the alive time, hitbox should be killed when it reaches 0"""
         self.alive_time -= 1
-        
+
 
 class Entity(pygame.sprite.Sprite):
     class AnimationState(Enum):
         IDLE = auto()
-        WALKING = auto()
         RUNNING = auto()
         AIRBORNE = auto()
+        JUMPING = auto()
     animation_state: AnimationState
     position: pygame.Vector2
     size: pygame.Vector2
+    facing_left: bool
     speed: pygame.Vector2
     gravity_acceleration: float
     dead: bool
@@ -69,6 +70,7 @@ class Entity(pygame.sprite.Sprite):
         width = sprite_width
         height = sprite_height
         # other stuff
+        self.facing_left = False
         self.position = pygame.Vector2(x, y)
         self.size = pygame.Vector2(width, height)
         self.rect = pygame.Rect(0, 0, width, height)
@@ -82,6 +84,7 @@ class Entity(pygame.sprite.Sprite):
         self.animation_frequency = 3 # update every 3 frames (3/60)
         self.frame_counter = 0
         self.animation_frames = [[] for _ in range(len(self.AnimationState))]
+        self.animation_frames_flipped = [[] for _ in range(len(self.AnimationState))]
         for state in self.AnimationState:
             image_path = os.path.join(f"assets/{name}", state.name + ".png")
             if not os.path.exists(image_path):
@@ -91,6 +94,7 @@ class Entity(pygame.sprite.Sprite):
             image_count = spritesheet.get_width() // sprite_width
             tup = [(sprite_width * x, 0, sprite_width, sprite_height) for x in range(image_count)]
             self.animation_frames[state.value] = [self.get_image(spritesheet, *frame) for frame in tup]
+            self.animation_frames_flipped[state.value] = [pygame.transform.flip(self.get_image(spritesheet, *frame), True, False) for frame in tup]
         if len(self.animation_frames[self.AnimationState.IDLE.value]) == 0:
             raise FileNotFoundError(f"There is no IDLE animation spritesheet for Entity {name}! I looked at path: {os.path.join("assets", name+"_IDLE.png")}")
         self.image = self.animation_frames[self.AnimationState.IDLE.value][0]
@@ -104,11 +108,15 @@ class Entity(pygame.sprite.Sprite):
         animation_duration = len(self.animation_frames[self.animation_state.value])
         self.frame_counter %= self.animation_frequency * animation_duration
         frame_id = self.frame_counter // self.animation_frequency
-        self.image = self.animation_frames[self.animation_state.value][frame_id]
+        if self.facing_left:
+            self.image = self.animation_frames_flipped[self.animation_state.value][frame_id]
+        else:
+            self.image = self.animation_frames[self.animation_state.value][frame_id]
     def setAnimationState(self, new_animation_state: AnimationState):
         self.frame_counter = 0
         self.animation_state = new_animation_state
-        self.image = self.animation_frames[new_animation_state.value][0]
+        if len(self.animation_frames[new_animation_state.value])!=0:
+            self.image = self.animation_frames[new_animation_state.value][0]
 
 class Enemy(Entity):
     def __init__(self, x, y, z_index, name: str):
@@ -119,13 +127,13 @@ class Enemy(Entity):
 
         # state stuff
         self.hp = 10
-        
+
         self.grounded = False
         self.head_clipping = False
         self.wall_to_left = False
         self.wall_to_right = False
         self.looking_right = True
-        
+
         # const parameters
         self.run_speed = 4
         self.gravity_acceleration = 0.8
@@ -169,7 +177,7 @@ class Player(Entity): # TODO: add movement
         self.wall_to_right = False
         self.can_jump = False
         self.looking_right = True
-        
+
 
         # const parameters
         self.run_speed = 4
@@ -195,19 +203,22 @@ class Player(Entity): # TODO: add movement
 
         if self.head_clipping:
             self.speed.y = max(0, self.speed.y)
-
+        self.setAnimationState(Entity.AnimationState.IDLE)
         if buttons[pygame.K_a]:
             self.speed.x -= self.run_speed
+            self.facing_left = True
+            self.setAnimationState(Entity.AnimationState.RUNNING)
         if buttons[pygame.K_d]:
             self.speed.x += self.run_speed
-
+            self.facing_left = False
+            self.setAnimationState(Entity.AnimationState.RUNNING)
         ## jump
         # initial jump
         if self.grounded and buttons[pygame.K_SPACE] and not self.buttons_last_frame[pygame.K_SPACE]:
             self.speed.y = -10
             self.can_jump = True
             self.jump_timer = 0
-
+            self.setAnimationState(Entity.AnimationState.JUMPING)
         # holding space
         if self.can_jump and buttons[pygame.K_SPACE]:
             if self.jump_timer < self.jump_time and not self.head_clipping:
@@ -315,8 +326,8 @@ class World:
         if self.rectWorldCollision(right_box):
             self.player.wall_to_right = True
 
-        
-        
+
+
 
 
     def enemyTouchCheck(self):
@@ -325,14 +336,14 @@ class World:
             enemy.head_clipping = False
             enemy.wall_to_right = False
             enemy.wall_to_left = False
-    
+
             touch_check = pygame.Rect(1, 1, 1, 1) # TODO: fix player floating by one pixel
-    
+
             feet_box = pygame.Rect(enemy.position.x, enemy.position.y + touch_check.h + enemy.size.y, enemy.size.x, touch_check.h)
             head_box = pygame.Rect(enemy.position.x, enemy.position.y - touch_check.h, enemy.size.x, touch_check.h)
             left_box = pygame.Rect(enemy.position.x - touch_check.w, enemy.position.y + enemy.size.y / 4, touch_check.w, enemy.size.y / 2)
             right_box = pygame.Rect(enemy.position.x + enemy.size.x, enemy.position.y + enemy.size.y / 4, touch_check.w, enemy.size.y / 2)
-    
+
             if self.rectWorldCollision(feet_box):
                 enemy.grounded = True
             if self.rectWorldCollision(head_box):
@@ -342,8 +353,8 @@ class World:
             if self.rectWorldCollision(right_box):
                 enemy.wall_to_right = True
 
-    
-    
+
+
     def enemyCollision(self):
         for enemy in self.enemies:
             for platform in self.platforms:
@@ -418,9 +429,10 @@ class Camera:
                 scaled_w = int(sprite.size.x * scale_x)
                 scaled_h = int(sprite.size.y * scale_y)
                 if isinstance(sprite, Entity):
-                    for animation in sprite.animation_frames:
-                        for i, frame in enumerate(animation):
-                            animation[i] = pygame.transform.scale(frame, (scaled_w, scaled_h))
+                    for i, animation in enumerate(sprite.animation_frames):
+                        for j, frame in enumerate(animation):
+                            animation[j] = pygame.transform.scale(frame, (scaled_w, scaled_h))
+                            sprite.animation_frames_flipped[i][j] = pygame.transform.flip(animation[j], True, False)
                 elif isinstance(sprite, Platform):
                     sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h))
         self.world.all_sprites.update()
@@ -495,8 +507,9 @@ def main():
 
     camera = Camera(-100, -100, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, window)
 
+    font = pygame.font.SysFont("Arial", 24, bold=True)
 
-
+    clock = pygame.Clock()
     running = True
     while running:
         for event in pygame.event.get():
@@ -509,9 +522,12 @@ def main():
         camera.moveCamera()
         camera.update()
 
-
+        fps = int(clock.get_fps())
+        fps_text = font.render(f"FPS: {fps}", True, pygame.Color(255,0,0))
+        window.blit(fps_text, (10, 10))
         pygame.display.flip()
-        pygame.time.delay(16)
 
+        clock.tick(60)
+    pygame.quit()
 if __name__ == "__main__":
     main()
