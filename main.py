@@ -18,6 +18,9 @@ class Platform (pygame.sprite.Sprite):
         image_path = os.path.join("assets", file_name)
         self.image = pygame.image.load(image_path).convert_alpha()
 
+    def setCameraPosition(self, x, y, w, h):
+        self.rect = pygame.Rect(x, y, w, h)
+
 class Entity(pygame.sprite.Sprite):
     class AnimationState(Enum): # TODO: animaton handling
         IDLE = auto()
@@ -95,7 +98,7 @@ class Player(Entity): # TODO: add movement
         self.animation_state = self.AnimationState.IDLE
         self.dead = False
 
-        self.movement_speed = 4
+        self.movement_speed = 0.1
         self.grounded = False
         self.gravity = 20
         self.jump_timer = 0
@@ -106,10 +109,9 @@ class Player(Entity): # TODO: add movement
 
     def move(self, buttons):
         self.speed.x = 0
-        self.speed.y -= self.gravity
+        # self.speed.y -= self.gravity
         if self.grounded == 0:
             self.speed.y = max(0, self.speed.y);
-
         if buttons[pygame.K_a]:
             self.speed.x -= self.movement_speed
         if buttons[pygame.K_d]:
@@ -205,21 +207,35 @@ class Camera:
         self.pixel_height = pixel_height
         self.x = x
         self.y = y
-        self.softzone = Margins(150, 75, 300, 300)
-        self.deadzone = Margins(100, 50, 100, 100)
+        self.softzone = Margins(15, 8, 30, 30)
+        self.deadzone = Margins(10, 5, 10, 10)
         self.camera_follow_speed = 3
         self.world = world
         self.window = window
 
     def update(self):
+        scale_x = self.pixel_width / self.world_width
+        scale_y = self.pixel_height / self.world_height
+        for sprite in self.world.all_sprites:
+            pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
+            sprite.setCameraPosition(
+                pos.x,
+                pos.y,
+                sprite.size.x * scale_x,
+                sprite.size.y * scale_y
+            )
+            scaled_w = int(sprite.size.x * scale_x)
+            scaled_h = int(sprite.size.y * scale_y)
+            sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h)) # TODO: make this run only once per screen resize and also make it work on future spritesheets
         self.world.all_sprites.update()
         self.world.all_sprites.draw(self.window)
 
     def pointToScreen(self, point: pygame.Vector2) -> pygame.Vector2:
-        point -= pygame.Vector2(self.x, self.y)
-        point.x /= self.world_width
-        point.y /= self.world_height
-        return point
+        offset_point = point - pygame.Vector2(self.x, self.y)
+
+        screen_x = (offset_point.x / self.world_width) * self.pixel_width
+        screen_y = (offset_point.y / self.world_height) * self.pixel_height
+        return pygame.Vector2(screen_x, screen_y)
 
 
     def moveCamera(self):
@@ -261,12 +277,15 @@ def main():
     pygame.init()
     window = pygame.display.set_mode(
         (WINDOW_WIDTH, WINDOW_HEIGHT),
-        pygame.RESIZABLE
     )
 
     pygame.display.set_caption("pygame")
 
-    player = Player()
+    player = Player(0, 0, 0, "debug-platform-48x48.png")
+    world = World(player)
+
+    camera = Camera(0, 0, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, window)
+
 
 
     running = True
@@ -275,10 +294,15 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-
+        window.fill((0, 0, 0))
         buttons = pygame.key.get_pressed()
+        world.advancePhysics(buttons)
+        camera.moveCamera()
+        camera.update()
 
 
+        pygame.display.flip()
+        pygame.time.delay(16)
 
 if __name__ == "__main__":
     main()
