@@ -83,8 +83,8 @@ class Entity(pygame.sprite.Sprite):
         self.animation_state = self.AnimationState.IDLE
         self.animation_frequency = 3 # update every 3 frames (3/60)
         self.frame_counter = 0
-        self.animation_frames = [[] for _ in range(len(self.AnimationState))]
-        self.animation_frames_flipped = [[] for _ in range(len(self.AnimationState))]
+        self.animation_frames = [[] for _ in range(len(self.AnimationState) + 1)]
+        self.animation_frames_flipped = [[] for _ in range(len(self.AnimationState) + 1)]
         for state in self.AnimationState:
             image_path = os.path.join(f"assets/{name}", state.name + ".png")
             if not os.path.exists(image_path):
@@ -113,6 +113,8 @@ class Entity(pygame.sprite.Sprite):
         else:
             self.image = self.animation_frames[self.animation_state.value][frame_id]
     def setAnimationState(self, new_animation_state: AnimationState):
+        if new_animation_state == self.animation_state:
+            return
         self.frame_counter = 0
         self.animation_state = new_animation_state
         if len(self.animation_frames[new_animation_state.value])!=0:
