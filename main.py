@@ -290,23 +290,19 @@ class Camera:
         self.resize = True
 
     def update(self):
-        if self.resize:
-            scale_x = self.pixel_width / self.world_width
-            scale_y = self.pixel_height / self.world_height
-            for sprite in self.world.all_sprites:
-                pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
-                sprite.setCameraPosition(
-                    pos.x,
-                    pos.y,
-                    sprite.size.x * scale_x,
-                    sprite.size.y * scale_y
-                )
-                scaled_w = int(sprite.size.x * scale_x)
-                scaled_h = int(sprite.size.y * scale_y)
-                for animation in sprite.animation_frames:
-                    for i, frame in enumerate(animation):
-                        animation[i] = pygame.transform.scale(frame, (scaled_w, scaled_h)) # TODO: make this run only once per screen resize and also make it work on future spritesheets
-            self.resize = False
+        scale_x = self.pixel_width / self.world_width
+        scale_y = self.pixel_height / self.world_height
+        for sprite in self.world.all_sprites: 
+            pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
+            sprite.setCameraPosition(
+                pos.x,
+                pos.y,
+                sprite.size.x * scale_x,
+                sprite.size.y * scale_y
+            )
+            scaled_w = int(sprite.size.x * scale_x)
+            scaled_h = int(sprite.size.y * scale_y)
+            sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h)) # TODO: make this run only once per screen resize and also make it work on future spritesheets
         self.world.all_sprites.update()
         self.world.all_sprites.draw(self.window)
 
