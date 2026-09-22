@@ -1,18 +1,27 @@
 import os
 from enum import Enum, auto
+import copy
 
 import pygame
+from pygame.constants import K_SPACE
 from pygame.sprite import LayeredUpdates
 
 
 class Platform (pygame.sprite.Sprite):
     position: pygame.Vector2
     size: pygame.Vector2
-    def __init__(self, pos_x: float, pos_y: float, width: float, height: float, z_index:int,  file_name: str):
+    def __init__(self, pos_x: float, pos_y: float, z_index:int,  file_name: str):
         super().__init__()
+        # image loading
+        image_path = os.path.join("assets", file_name)
+        self.source_image = pygame.image.load(image_path).convert_alpha()
+        self.image = self.source_image
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
+        
         self.position = pygame.Vector2(pos_x, pos_y)
-        self.size = pygame.Vector2(width, height)
-        self.rect = pygame.Rect(pos_x, pos_y, width, height)
+        self.size = pygame.Vector2(self.width, self.height)
+        self.rect = pygame.Rect(pos_x, pos_y, self.width, self.height)
         self._layer = z_index
         # image loading
         image_path = os.path.join("assets", file_name)
@@ -47,6 +56,7 @@ class Entity(pygame.sprite.Sprite):
         self.size = pygame.Vector2(self.width, self.height)
         self.rect = pygame.Rect(0, 0, self.width, self.height)
         self._layer = z_index
+        self.buttons_last_frame = []
 
         self.dead = False
         self.speed = pygame.Vector2(0, 0)
@@ -63,30 +73,71 @@ class Player(Entity): # TODO: add movement
     def __init__(self, x, y, z_index, file_name):
         super().__init__(x, y, z_index, file_name)
         self.speed = pygame.Vector2(0, 0)
-        self.gravity = 1
         self.animation_state = self.AnimationState.IDLE
         self.dead = False
 
-        self.movement_speed = 0.1
+        # state stuff
         self.grounded = False
-        self.gravity = 20
-        self.jump_timer = 0
-        self.jump_speed = 5
-        self.jump_time = 30 # max time to hold a jump
         self.head_clipping = False
+        self.wall_to_left = False
+        self.wall_to_right = False
         self.can_jump = False
 
+
+        self.movement_speed = 4
+        self.gravity = 0.8
+        self.terminal_velocity = 10;
+
+        # jump
+        self.jump_speed = 4
+        self.jump_time = 8 # max time to hold a jump in frames
+        self.jump_timer = 0
+        self.can_jump = False # see if player can continue to jump upwards by holding tge button
+
+    
     def move(self, buttons):
         self.speed.x = 0
-        # self.speed.y -= self.gravity
-        if self.grounded == 0:
-            self.speed.y = max(0, self.speed.y);
+
+        if self.grounded:
+            self.speed.y = min(self.speed.y, 0)
+
+        else:
+            # Properly apply gravity and cap it at terminal velocity
+            self.speed.y = min(self.speed.y + self.gravity, self.terminal_velocity)
+
+        if self.head_clipping:
+            self.speed.y = max(0, self.speed.y)
+            
         if buttons[pygame.K_a]:
             self.speed.x -= self.movement_speed
         if buttons[pygame.K_d]:
             self.speed.x += self.movement_speed
 
+        ## jump
+        # initial jump
+        if self.grounded and buttons[pygame.K_SPACE] and not self.buttons_last_frame[K_SPACE]:
+            self.speed.y = -10
+            self.can_jump = True
+            self.jump_timer = 0
+
+        # holding space
+        if self.can_jump and buttons[pygame.K_SPACE]:
+            if self.jump_timer < self.jump_time and not self.head_clipping:
+                self.speed.y = -10
+                self.jump_timer += 1
+            else:
+                self.can_jump = False
+        else:
+            self.can_jump = False
+                
+            
+
+    
+        print(f"position: {self.position}")
+        print(f"speed:    {self.speed}")
+        print(f"grounded: {self.grounded}")
         self.position += self.speed
+        self.buttons_last_frame = copy.copy(buttons)
 
 class World:
     frame_timer: int
@@ -117,10 +168,19 @@ class World:
                 platform.position.y < entity.position.y + entity.size.y and
                 platform.position.y + platform.size.y > entity.position.y)
 
-    def playerCollision(self):
-        self.player.grounded = False
-        self.player.head_clipping = False
+    @staticmethod
+    def platformRectCollision(rect: pygame.Rect, platform: Platform):
+        return (rect.x < platform.position.x + platform.size.x and
+            rect.x + rect.w > platform.position.x and
+                rect.y < platform.position.y + platform.size.y and
+                rect.y + rect.h > platform.position.y)
 
+    def rectWorldCollision(self, rect: pygame.Rect):
+        for platform in self.platforms:
+            if self.platformRectCollision(rect, platform):
+                return True
+        return False
+    def playerCollision(self):
         for platform in self.platforms:
             if not self.entityPlatformCollision(platform, self.player):
                 continue
@@ -140,20 +200,40 @@ class World:
             else:
                 if self.player.position.y < platform.position.y:
                     self.player.position.y -= overlap_y
-                    self.player.grounded = True
                 else:
                     self.player.position.y += overlap_y
-                    self.player.head_clipping = True
-            # TODO: ADD PROPER COLLISION PUSHING INVOLVING DX AND DY
+            # TODO: ADD PROPER COLLISION PUSHING INVOLVING DX AND DY PLEASE PLEASE PLEASE REMEMBER THIS 
 
+    
+    def playerTouchCheck(self):
+        self.player.grounded = False
+        self.player.head_clipping = False
+        self.player.wall_to_right = False
+        self.player.wall_to_left = False
 
+        touch_check = pygame.Rect(1, 1, 1, 1)
+        
+        feet_box = pygame.Rect(self.player.position.x, self.player.position.y + touch_check.h + self.player.size.y, self.player.size.x, touch_check.h)
+        head_box = pygame.Rect(self.player.position.x, self.player.position.y - touch_check.h, self.player.size.x, touch_check.h)
+        left_box = pygame.Rect(self.player.position.x - touch_check.w, self.player.position.y + self.player.size.y / 4, touch_check.w, self.player.size.y / 2)
+        right_box = pygame.Rect(self.player.position.x + self.player.size.x, self.player.position.y + self.player.size.y / 4, touch_check.w, self.player.size.y / 2)
 
+        if self.rectWorldCollision(feet_box):
+            self.player.grounded = True
+        if self.rectWorldCollision(head_box):
+            self.player.head_clipping = True
+        if self.rectWorldCollision(left_box):
+            self.player.wall_to_left = True
+        if self.rectWorldCollision(right_box):
+            self.player.wall_to_right = True
+        
     def enemyCollision(self):
         pass
 
     def handleCollisions(self):
         self.enemyCollision()
         self.playerCollision()
+        self.playerTouchCheck()
 
     def advancePhysics(self, buttons): # TODO: make this move the player and perform collision checks
         self.enemies = [e for e in self.enemies if not e.dead]
@@ -250,7 +330,18 @@ def main():
     pygame.display.set_caption("pygame")
 
     player = Player(0, 0, 0, "debug-platform-48x48.png")
+
+    plat10 = Platform(-118, 100, 1, "debug-platform-128x32.png")
+    plat11 = Platform(-10, 100, 1, "debug-platform-128x32.png")
+
+    plat2 = Platform(-10, 0, 1, "debug-platform-128x32.png")
+    
     world = World(player)
+
+    world.addPlatform(plat10)
+    world.addPlatform(plat11)
+    
+    world.addPlatform(plat2)
 
     camera = Camera(0, 0, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, window)
     
