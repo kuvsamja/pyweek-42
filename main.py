@@ -17,7 +17,7 @@ class Platform (pygame.sprite.Sprite):
         self.image = self.source_image
         self.width = self.image.get_width()
         self.height = self.image.get_height()
-        
+
         self.position = pygame.Vector2(pos_x, pos_y)
         self.size = pygame.Vector2(self.width, self.height)
         self.rect = pygame.Rect(pos_x, pos_y, self.width, self.height)
@@ -121,7 +121,7 @@ class Player(Entity): # TODO: add movement
         self.jump_timer = 0
         self.can_jump = False # see if player can continue to jump upwards by holding tge button
 
-    
+
     def move(self, buttons):
         self.speed.x = 0
 
@@ -134,7 +134,7 @@ class Player(Entity): # TODO: add movement
 
         if self.head_clipping:
             self.speed.y = max(0, self.speed.y)
-            
+
         if buttons[pygame.K_a]:
             self.speed.x -= self.movement_speed
         if buttons[pygame.K_d]:
@@ -156,10 +156,10 @@ class Player(Entity): # TODO: add movement
                 self.can_jump = False
         else:
             self.can_jump = False
-                
-            
 
-    
+
+
+
         print(f"position: {self.position}")
         print(f"speed:    {self.speed}")
         print(f"grounded: {self.grounded}")
@@ -229,9 +229,9 @@ class World:
                     self.player.position.y -= overlap_y
                 else:
                     self.player.position.y += overlap_y
-            # TODO: ADD PROPER COLLISION PUSHING INVOLVING DX AND DY PLEASE PLEASE PLEASE REMEMBER THIS 
+            # TODO: ADD PROPER COLLISION PUSHING INVOLVING DX AND DY PLEASE PLEASE PLEASE REMEMBER THIS
 
-    
+
     def playerTouchCheck(self):
         self.player.grounded = False
         self.player.head_clipping = False
@@ -239,7 +239,7 @@ class World:
         self.player.wall_to_left = False
 
         touch_check = pygame.Rect(1, 1, 1, 1)
-        
+
         feet_box = pygame.Rect(self.player.position.x, self.player.position.y + touch_check.h + self.player.size.y, self.player.size.x, touch_check.h)
         head_box = pygame.Rect(self.player.position.x, self.player.position.y - touch_check.h, self.player.size.x, touch_check.h)
         left_box = pygame.Rect(self.player.position.x - touch_check.w, self.player.position.y + self.player.size.y / 4, touch_check.w, self.player.size.y / 2)
@@ -253,7 +253,7 @@ class World:
             self.player.wall_to_left = True
         if self.rectWorldCollision(right_box):
             self.player.wall_to_right = True
-        
+
     def enemyCollision(self):
         pass
 
@@ -363,12 +363,12 @@ def main():
     plat11 = Platform(-10, 100, 1, "debug-platform-128x32.png")
 
     plat2 = Platform(-10, 0, 1, "debug-platform-128x32.png")
-    
+
     world = World(player)
 
     world.addPlatform(plat10)
     world.addPlatform(plat11)
-    
+
     world.addPlatform(plat2)
 
     camera = Camera(0, 0, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, window)
