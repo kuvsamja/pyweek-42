@@ -22,9 +22,6 @@ class Platform (pygame.sprite.Sprite):
         self.size = pygame.Vector2(self.width, self.height)
         self.rect = pygame.Rect(pos_x, pos_y, self.width, self.height)
         self._layer = z_index
-        # image loading
-        image_path = os.path.join("assets", file_name)
-        self.image = pygame.image.load(image_path).convert_alpha()
 
     def setCameraPosition(self, x, y):
         self.rect = pygame.Rect(x, y, self.width, self.height)
@@ -141,7 +138,7 @@ class Player(Entity): # TODO: add movement
 
         ## jump
         # initial jump
-        if self.grounded and buttons[pygame.K_SPACE] and not self.buttons_last_frame[K_SPACE]:
+        if self.grounded and buttons[pygame.K_SPACE] and not self.buttons_last_frame[pygame.K_SPACE]:
             self.speed.y = -10
             self.can_jump = True
             self.jump_timer = 0
@@ -290,24 +287,27 @@ class Camera:
         self.resize = True
 
     def update(self):
-        if self.resize:
-            scale_x = self.pixel_width / self.world_width
-            scale_y = self.pixel_height / self.world_height
-            for sprite in self.world.all_sprites:
-                pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
-                sprite.setCameraPosition(
-                    pos.x,
-                    pos.y
-                )
+        scale_x = self.pixel_width / self.world_width
+        scale_y = self.pixel_height / self.world_height
+        for sprite in self.world.all_sprites:
+            pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
+            sprite.setCameraPosition(
+                pos.x,
+                pos.y
+            )
+            if self.resize:
+
                 scaled_w = int(sprite.size.x * scale_x)
                 scaled_h = int(sprite.size.y * scale_y)
                 if isinstance(sprite, Entity):
                     for animation in sprite.animation_frames:
                         for i, frame in enumerate(animation):
-                            animation[i] = pygame.transform.scale(frame, (scaled_w, scaled_h)) # TODO: make this run only once per screen resize and also make it work on future spritesheets
-            self.resize = False
+                            animation[i] = pygame.transform.scale(frame, (scaled_w, scaled_h))
+                elif isinstance(sprite, Platform):
+                    sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h))
         self.world.all_sprites.update()
         self.world.all_sprites.draw(self.window)
+        self.resize = False
 
     def pointToScreen(self, point: pygame.Vector2) -> pygame.Vector2:
         offset_point = point - pygame.Vector2(self.x, self.y)
