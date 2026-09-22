@@ -297,9 +297,7 @@ class Camera:
                 pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
                 sprite.setCameraPosition(
                     pos.x,
-                    pos.y,
-                    sprite.size.x * scale_x,
-                    sprite.size.y * scale_y
+                    pos.y
                 )
                 scaled_w = int(sprite.size.x * scale_x)
                 scaled_h = int(sprite.size.y * scale_y)
