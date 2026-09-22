@@ -118,7 +118,10 @@ class Entity(pygame.sprite.Sprite):
         self.frame_counter = 0
         self.animation_state = new_animation_state
         if len(self.animation_frames[new_animation_state.value])!=0:
-            self.image = self.animation_frames[new_animation_state.value][0]
+            if not self.facing_left:
+                self.image = self.animation_frames[new_animation_state.value][0]
+            else:
+                self.image = self.animation_frames_flipped[new_animation_state.value][0]
 
 class Enemy(Entity):
     def __init__(self, x, y, z_index, name: str):
