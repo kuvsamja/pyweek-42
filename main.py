@@ -66,8 +66,7 @@ class Entity(pygame.sprite.Sprite):
         self.frame_counter = 0
         self.animation_frames = [[] for _ in range(len(self.AnimationState))]
         for state in self.AnimationState:
-            spritesheet_path = name + "_" + state.name + ".png"
-            image_path = os.path.join("assets", spritesheet_path)
+            image_path = os.path.join(f"assets/{name}", state.name + ".png")
             if not os.path.exists(image_path):
                 print(f"Didn't find asset at: {image_path}")
                 continue
@@ -288,21 +287,26 @@ class Camera:
         self.camera_follow_speed = 3
         self.world = world
         self.window = window
+        self.resize = True
 
     def update(self):
-        scale_x = self.pixel_width / self.world_width
-        scale_y = self.pixel_height / self.world_height
-        for sprite in self.world.all_sprites:
-            pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
-            sprite.setCameraPosition(
-                pos.x,
-                pos.y,
-                sprite.size.x * scale_x,
-                sprite.size.y * scale_y
-            )
-            scaled_w = int(sprite.size.x * scale_x)
-            scaled_h = int(sprite.size.y * scale_y)
-            sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h)) # TODO: make this run only once per screen resize and also make it work on future spritesheets
+        if self.resize:
+            scale_x = self.pixel_width / self.world_width
+            scale_y = self.pixel_height / self.world_height
+            for sprite in self.world.all_sprites:
+                pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
+                sprite.setCameraPosition(
+                    pos.x,
+                    pos.y,
+                    sprite.size.x * scale_x,
+                    sprite.size.y * scale_y
+                )
+                scaled_w = int(sprite.size.x * scale_x)
+                scaled_h = int(sprite.size.y * scale_y)
+                for animation in sprite.animation_frames:
+                    for i, frame in enumerate(animation):
+                        animation[i] = pygame.transform.scale(frame, (scaled_w, scaled_h)) # TODO: make this run only once per screen resize and also make it work on future spritesheets
+            self.resize = False
         self.world.all_sprites.update()
         self.world.all_sprites.draw(self.window)
 
