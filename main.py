@@ -362,15 +362,13 @@ def main():
 
     player = Player(0, 0, 0)
 
-    plat10 = Platform(-118, 100, 1, "debug-platform-128x32.png")
-    plat11 = Platform(-10, 100, 1, "debug-platform-128x32.png")
+    plat10 = Platform(-118, 100, 1, "debug-platform-1024x32.png")
 
     plat2 = Platform(-10, 0, 1, "debug-platform-128x32.png")
 
     world = World(player)
 
     world.addPlatform(plat10)
-    world.addPlatform(plat11)
 
     world.addPlatform(plat2)
 
