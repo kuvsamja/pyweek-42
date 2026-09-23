@@ -48,7 +48,6 @@ class DamageBox:
         """decreases the alive time, hitbox should be killed when it reaches 0"""
         self.alive_time -= 1
 
-
 class Entity(pygame.sprite.Sprite):
     class AnimationState(Enum):
         IDLE = auto()
@@ -151,7 +150,6 @@ class Enemy(Entity):
         self.terminal_velocity = 10
         self.invincibility_duration = 10 # change for the boss
 
-
     def damage(self, damage_box: DamageBox): # TODO: finish this
         print("b")
         if self.invincibility_timer > 0: return
@@ -164,6 +162,7 @@ class Enemy(Entity):
         """updates the enemy"""
         self.speed.x = 0
         self.invincibility_timer -= 1
+        self.stun_timer -= 1
 
         if self.grounded:
             self.speed.y = min(self.speed.y, 0)
@@ -194,6 +193,7 @@ class Player(Entity): # TODO: add movement
         # self.poise = 100 TODO: mabye this
         self.invincibility_timer = 0
         self.stun_timer = 0
+        self.sword_timer = 0
 
         self.stanced = False
 
@@ -204,13 +204,13 @@ class Player(Entity): # TODO: add movement
         self.can_jump = False
         self.looking_right = True
 
-
         # const parameters
         self.run_speed = 4
         self.gravity_acceleration = 0.8
         self.terminal_velocity = 10
 
         self.invincibility_duration = 10
+        self.sword_delay = 25
 
         # jump
         self.jump_speed = 4
@@ -230,6 +230,8 @@ class Player(Entity): # TODO: add movement
         """updates the player"""
         self.speed.x = 0
         self.invincibility_timer -= 1
+        self.stun_timer -= 1
+        self.sword_timer -= 1
 
         if self.grounded:
             self.speed.y = min(self.speed.y, 0)
@@ -241,23 +243,23 @@ class Player(Entity): # TODO: add movement
         if self.head_clipping:
             self.speed.y = max(0, self.speed.y)
         self.setAnimationState(Entity.AnimationState.IDLE)
-        if buttons[pygame.K_a]:
+        if buttons[pygame.K_LEFT]:
             self.speed.x -= self.run_speed
             self.facing_left = True
             self.setAnimationState(Entity.AnimationState.RUNNING)
-        if buttons[pygame.K_d]:
+        if buttons[pygame.K_RIGHT]:
             self.speed.x += self.run_speed
             self.facing_left = False
             self.setAnimationState(Entity.AnimationState.RUNNING)
         ## jump
         # initial jump
-        if self.grounded and buttons[pygame.K_SPACE] and not self.buttons_last_frame[pygame.K_SPACE]:
+        if self.grounded and buttons[pygame.K_z] and not self.buttons_last_frame[pygame.K_z]:
             self.speed.y = -10
             self.can_jump = True
             self.jump_timer = 0
             self.setAnimationState(Entity.AnimationState.JUMPING)
         # holding space
-        if self.can_jump and buttons[pygame.K_SPACE]:
+        if self.can_jump and buttons[pygame.K_z]:
             if self.jump_timer < self.jump_time and not self.head_clipping:
                 self.speed.y = -10
                 self.jump_timer += 1
@@ -274,10 +276,10 @@ class Player(Entity): # TODO: add movement
         # print(f"speed:    {self.speed}")
         # print(f"grounded: {self.grounded}")
         self.position += self.speed
-        self.buttons_last_frame = copy.copy(buttons)
 
         db_list = []
-        if buttons[pygame.K_x]:
+        if buttons[pygame.K_x] and not self.buttons_last_frame[pygame.K_x] and self.sword_timer < 0: # TODO: add hit polling
+            self.sword_timer = self.sword_delay
             box_width = 20
             box_x = (self.position.x - box_width) if self.facing_left else (self.position.x + self.size.x)
             
@@ -294,6 +296,7 @@ class Player(Entity): # TODO: add movement
                 )
             )
 
+        self.buttons_last_frame = copy.copy(buttons)
         return db_list
 
 class World:
@@ -494,7 +497,7 @@ class Camera:
         self.window = window
         self.resize = True
 
-    def update(self):
+    def draw(self):
         scale_x = self.pixel_width / self.world_width
         scale_y = self.pixel_height / self.world_height
         for sprite in self.world.all_sprites:
@@ -519,7 +522,7 @@ class Camera:
         self.world.all_sprites.draw(self.window)
         self.resize = False
         
-    def updateDebug(self):
+    def drawDebug(self):
         scale_x = self.pixel_width / self.world_width
         scale_y = self.pixel_height / self.world_height
         for sprite in self.world.all_sprites:
@@ -634,7 +637,7 @@ def main():
         buttons = pygame.key.get_pressed()
         world.advancePhysics(buttons)
         camera.moveCamera()
-        camera.updateDebug()
+        camera.drawDebug()
 
         fps = int(clock.get_fps())
         fps_text = font.render(f"FPS: {fps}", True, pygame.Color(255,0,0))
