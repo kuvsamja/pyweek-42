@@ -218,16 +218,17 @@ class Player(Entity): # TODO: add movement
         # self.poise = 100 TODO: mabye this
         self.invincibility_timer = 0
         self.stun_timer = 0
-        
+
         self.sword_timer = 0
         self.swing_count = 0
 
+        self.parry_window = 0
         self.parry_timer = 0
         self.blocking = False
-        
+
         self.stanced = False
         self.stance_transition_timer = 0
-        
+
         self.grounded = False
         self.head_clipping = False
         self.wall_to_left = False
@@ -246,8 +247,8 @@ class Player(Entity): # TODO: add movement
         self.walk_speed = 3
         self.knockback_drop_s = 0.2
         self.knockback_drop_s_block = 0.5
-        
-        self.parry_window = 8
+
+        self.parry_window_base = 8
 
         ## other
         self.gravity_acceleration = 0.8
@@ -266,9 +267,14 @@ class Player(Entity): # TODO: add movement
         self.stanced_jump_speed = 7
         self.stanced_jump_time = 5 # max time to hold a jump in frames
 
+    def parryCallback(self):
+        pass
 
     def damage(self, damage_box: DamageBox): # TODO: finish this
         if self.invincibility_timer > 0: return
+        if self.parry_timer >= 0:
+           self.parryCallback()
+           return;
 
         self.hp -= damage_box.damage
         self.stun_timer = damage_box.stun_time
@@ -314,21 +320,26 @@ class Player(Entity): # TODO: add movement
 
     def handleStanced(self, buttons) -> list[DamageBox]:
         self.setAnimationState(Entity.AnimationState.S_IDLE)
-
+        print(self.parry_timer >= 0)
 
         self.blocking = False
         if buttons[pygame.K_c]:
             if not self.buttons_last_frame[pygame.K_c]:
-                self.parry_timer = self.parry_window
+                if self.parry_timer > -10:
+                    self.parry_window -= 2
+                else:
+                    self.parry_window = self.parry_window_base
+                self.parry_timer = self.parry_window # TODO: make this better
+
             self.blocking = True
-            self.setAnimationState(self.AnimationState.S_BLOCK) # TODO: make parry decrease when spammed
+            self.setAnimationState(self.AnimationState.S_BLOCK)
             return []
-        
+
         dir = 0
         if buttons[pygame.K_LEFT]: dir = -1
         if buttons[pygame.K_RIGHT]: dir = 1
         if buttons[pygame.K_LEFT] and buttons[pygame.K_RIGHT]: dir = 0
-        
+
         if dir != 0:
             self.speed.x += self.walk_speed*dir
             self.facing_left = dir==-1
@@ -396,7 +407,7 @@ class Player(Entity): # TODO: add movement
         self.sword_timer -= 1
         self.parry_timer -= 1
         self.stance_transition_timer -= 1
-        
+
         if self.grounded:
             self.speed.y = min(self.speed.y, 0)
 
@@ -410,7 +421,7 @@ class Player(Entity): # TODO: add movement
         if buttons[pygame.K_LSHIFT] and not self.buttons_last_frame[pygame.K_LSHIFT] and self.grounded:
             self.stance_transition_timer = self.stance_transition_duration
             self.stanced = not self.stanced
-            
+
 
         if self.stance_transition_timer >= 0:
             db_list = []
