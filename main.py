@@ -65,6 +65,8 @@ class Entity(pygame.sprite.Sprite):
         S_RISE = auto()
         S_FALL = auto()
 
+        STANCING = auto()
+
     animation_state: AnimationState
     position: pygame.Vector2
     size: pygame.Vector2
@@ -224,7 +226,8 @@ class Player(Entity): # TODO: add movement
         self.blocking = False
         
         self.stanced = False
-
+        self.stance_transition_timer = 0
+        
         self.grounded = False
         self.head_clipping = False
         self.wall_to_left = False
@@ -239,6 +242,7 @@ class Player(Entity): # TODO: add movement
         self.knockback_drop_us = 0.1 # how much knockback speed to decrease by frame
 
         ## stanced
+        self.stance_transition_duration = 30
         self.walk_speed = 3
         self.knockback_drop_s = 0.2
         self.knockback_drop_s_block = 0.5
@@ -391,6 +395,7 @@ class Player(Entity): # TODO: add movement
         self.stun_timer -= 1
         self.sword_timer -= 1
         self.parry_timer -= 1
+        self.stance_transition_timer -= 1
         
         if self.grounded:
             self.speed.y = min(self.speed.y, 0)
@@ -403,11 +408,15 @@ class Player(Entity): # TODO: add movement
             self.speed.y = max(0, self.speed.y)
 
         if buttons[pygame.K_LSHIFT] and not self.buttons_last_frame[pygame.K_LSHIFT] and self.grounded:
+            self.stance_transition_timer = self.stance_transition_duration
             self.stanced = not self.stanced
+            
 
+        if self.stance_transition_timer >= 0:
+            db_list = []
+            self.setAnimationState(self.AnimationState.STANCING)
 
-
-        if self.stanced: db_list = self.handleStanced(buttons)
+        elif self.stanced: db_list = self.handleStanced(buttons)
         else:            db_list = self.handleUnstanced(buttons)
 
         if self.knockback_speed > 0:
