@@ -25,8 +25,6 @@ class Platform (pygame.sprite.Sprite):
     def setCameraPosition(self, x, y):
         self.rect = pygame.Rect(x, y, self.width, self.height)
 
-
-
 class DamageBox:
     class Owner(Enum):
         PLAYER = auto()
@@ -34,12 +32,17 @@ class DamageBox:
         BOSS = auto()
     box: pygame.Rect
     owner: Owner
+    damage: float
     alive_time: int # how long the box lingers in frames
 
-    def __init__(self, x, y, w, h, owner: Owner, alive_time: int):
+
+    def __init__(self, x, y, w, h, damage: float, owner: Owner, alive_time: int, stun_time: int):
         self.box = pygame.Rect(x, y, w, h)
+        self.damage = damage
         self.owner = owner
-        self.alive_time = alive_time
+        self.stun_time = stun_time
+        
+        self.alive_time = alive_time # TODO: add knockback
 
     def tick(self):
         """decreases the alive time, hitbox should be killed when it reaches 0"""
@@ -131,7 +134,10 @@ class Enemy(Entity):
         self.dead = False
 
         # state stuff
-        self.hp = 10
+        self.hp = 100
+        
+        self.invincibility_timer = 0
+        self.stun_timer = 0
 
         self.grounded = False
         self.head_clipping = False
@@ -143,11 +149,21 @@ class Enemy(Entity):
         self.run_speed = 4
         self.gravity_acceleration = 0.8
         self.terminal_velocity = 10
+        self.invincibility_duration = 10 # change for the boss
 
 
+    def damage(self, damage_box: DamageBox): # TODO: finish this
+        print("b")
+        if self.invincibility_timer > 0: return
+        
+        self.hp -= damage_box.damage
+        self.stun_timer = damage_box.stun_time
+        self.invincibility_timer = self.invincibility_duration
 
-    def move(self):
+    def runLogic(self) -> list[DamageBox]:
+        """updates the enemy"""
         self.speed.x = 0
+        self.invincibility_timer -= 1
 
         if self.grounded:
             self.speed.y = min(self.speed.y, 0)
@@ -161,9 +177,11 @@ class Enemy(Entity):
 
 
         self.position += self.speed
+        print(f"hp: {self.hp}")
         # print(f"position: {self.position}")
         # print(f"speed:    {self.speed}")
         # print(f"grounded: {self.grounded}")
+        return []
 
 class Player(Entity): # TODO: add movement
     def __init__(self, x, y, z_index):
@@ -173,6 +191,9 @@ class Player(Entity): # TODO: add movement
 
         # state stuff
         self.hp = 100
+        # self.poise = 100 TODO: mabye this
+        self.invincibility_timer = 0
+        self.stun_timer = 0
 
         self.stanced = False
 
@@ -189,6 +210,8 @@ class Player(Entity): # TODO: add movement
         self.gravity_acceleration = 0.8
         self.terminal_velocity = 10
 
+        self.invincibility_duration = 10
+
         # jump
         self.jump_speed = 4
         self.jump_time = 8 # max time to hold a jump in frames
@@ -196,8 +219,17 @@ class Player(Entity): # TODO: add movement
         self.can_jump = False # see if player can continue to jump upwards by holding tge button
 
 
-    def move(self, buttons):
+    def damage(self, damage_box: DamageBox): # TODO: finish this
+        if self.invincibility_timer > 0: return
+
+        self.hp -= damage_box.damage
+        self.stun_timer = damage_box.stun_time
+        self.invincibility_timer = self.invincibility_duration
+
+    def runLogic(self, buttons) -> list[DamageBox]:
+        """updates the player"""
         self.speed.x = 0
+        self.invincibility_timer -= 1
 
         if self.grounded:
             self.speed.y = min(self.speed.y, 0)
@@ -234,6 +266,7 @@ class Player(Entity): # TODO: add movement
         else:
             self.can_jump = False
 
+        # if buttons[pygame.] # TODO: add hits
 
 
 
@@ -243,17 +276,39 @@ class Player(Entity): # TODO: add movement
         self.position += self.speed
         self.buttons_last_frame = copy.copy(buttons)
 
+        db_list = []
+        if buttons[pygame.K_x]:
+            box_width = 20
+            box_x = (self.position.x - box_width) if self.facing_left else (self.position.x + self.size.x)
+            
+            db_list.append(
+                DamageBox(
+                    x=box_x, 
+                    y=self.position.y + 10, 
+                    w=box_width, 
+                    h=28, 
+                    damage=10, 
+                    owner=DamageBox.Owner.PLAYER, 
+                    alive_time=5, 
+                    stun_time=10
+                )
+            )
+
+        return db_list
+
 class World:
     frame_timer: int
-    platforms: list[Platform]
-    enemies: list[Enemy]
     player: Player
+    enemies: list[Enemy]
+    platforms: list[Platform]
+    damage_boxes: list[DamageBox]
     all_sprites: pygame.sprite.LayeredUpdates
 
     def __init__(self, player: Player):
         self.platforms = []
         self.enemies = []
         self.player = player
+        self.damage_boxes = []
         self.frame_timer = 0
         self.all_sprites = pygame.sprite.LayeredUpdates()
         self.all_sprites.add(player)
@@ -284,6 +339,7 @@ class World:
             if self.platformRectCollision(rect, platform):
                 return True
         return False
+
     def playerCollision(self):
         for platform in self.platforms:
             if not self.entityPlatformCollision(platform, self.player):
@@ -307,8 +363,6 @@ class World:
                 else:
                     self.player.position.y += overlap_y
             # TODO: ADD PROPER COLLISION PUSHING INVOLVING DX AND DY PLEASE PLEASE PLEASE REMEMBER THIS
-
-
     def playerTouchCheck(self):
         self.player.grounded = False
         self.player.head_clipping = False
@@ -330,10 +384,6 @@ class World:
             self.player.wall_to_left = True
         if self.rectWorldCollision(right_box):
             self.player.wall_to_right = True
-
-
-
-
 
     def enemyTouchCheck(self):
         for enemy in self.enemies:
@@ -357,9 +407,6 @@ class World:
                 enemy.wall_to_left = True
             if self.rectWorldCollision(right_box):
                 enemy.wall_to_right = True
-
-
-
     def enemyCollision(self):
         for enemy in self.enemies:
             for platform in self.platforms:
@@ -385,17 +432,44 @@ class World:
                         enemy.position.y += overlap_y
                 # TODO: ADD PROPER COLLISION PUSHING INVOLVING DX AND DY PLEASE PLEASE PLEASE REMEMBER THIS
 
+    def damageCollisions(self):
+        for db in self.damage_boxes:
+            if db.owner == DamageBox.Owner.PLAYER:
+                for enemy in self.enemies:
+                    if db.box.colliderect(
+                        pygame.Rect(
+                            enemy.position.x,
+                            enemy.position.y,
+                            enemy.size.x,
+                            enemy.size.y
+                        )
+                    ):
+                        enemy.damage(db)
+            elif db.owner == DamageBox.Owner.SMALL_ENEMY and db.box.colliderect(
+                    pygame.Rect(self.player.position.x,
+                                self.player.position.y,
+                                self.player.size.x,
+                                self.player.size.y)):
+                    self.player.damage(db)
 
     def handleCollisions(self):
         self.playerCollision()
         self.playerTouchCheck()
         self.enemyCollision()
         self.enemyTouchCheck()
+        self.damageCollisions()
+
+
 
     def advancePhysics(self, buttons): # TODO: make this perform collision checks for enemies
         self.enemies = [e for e in self.enemies if not e.dead]
-        for enemy in self.enemies: enemy.move()
-        self.player.move(buttons)
+
+        self.damage_boxes = [db for db in self.damage_boxes if db.alive_time > 0]
+        for damage_box in self.damage_boxes: damage_box.tick()
+
+        for enemy in self.enemies: self.damage_boxes += enemy.runLogic()
+        self.damage_boxes += self.player.runLogic(buttons)
+
         self.handleCollisions()
 
 class Margins:
@@ -440,9 +514,44 @@ class Camera:
                             sprite.animation_frames_flipped[i][j] = pygame.transform.flip(animation[j], True, False)
                 elif isinstance(sprite, Platform):
                     sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h))
+                    
         self.world.all_sprites.update()
         self.world.all_sprites.draw(self.window)
         self.resize = False
+        
+    def updateDebug(self):
+        scale_x = self.pixel_width / self.world_width
+        scale_y = self.pixel_height / self.world_height
+        for sprite in self.world.all_sprites:
+            pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
+            sprite.setCameraPosition(
+                pos.x,
+                pos.y
+            )
+            if self.resize:
+
+                scaled_w = int(sprite.size.x * scale_x)
+                scaled_h = int(sprite.size.y * scale_y)
+                if isinstance(sprite, Entity):
+                    for i, animation in enumerate(sprite.animation_frames):
+                        for j, frame in enumerate(animation):
+                            animation[j] = pygame.transform.scale(frame, (scaled_w, scaled_h))
+                            sprite.animation_frames_flipped[i][j] = pygame.transform.flip(animation[j], True, False)
+                elif isinstance(sprite, Platform):
+                    sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h))
+                    
+        self.world.all_sprites.update()
+        self.world.all_sprites.draw(self.window)
+        self.resize = False
+
+        for db in self.world.damage_boxes:
+            screen_pos = self.pointToScreen(pygame.Vector2(db.box.x, db.box.y))
+            
+            screen_w = int(db.box.width * scale_x)
+            screen_h = int(db.box.height * scale_y)
+            
+            debug_rect = pygame.Rect(screen_pos.x, screen_pos.y, screen_w, screen_h)
+            pygame.draw.rect(self.window, (255, 0, 0), debug_rect, width=2)
 
     def pointToScreen(self, point: pygame.Vector2) -> pygame.Vector2:
         offset_point = point - pygame.Vector2(self.x, self.y)
@@ -525,7 +634,7 @@ def main():
         buttons = pygame.key.get_pressed()
         world.advancePhysics(buttons)
         camera.moveCamera()
-        camera.update()
+        camera.updateDebug()
 
         fps = int(clock.get_fps())
         fps_text = font.render(f"FPS: {fps}", True, pygame.Color(255,0,0))
