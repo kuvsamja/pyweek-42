@@ -205,18 +205,29 @@ class Player(Entity): # TODO: add movement
         self.looking_right = True
 
         # const parameters
-        self.run_speed = 4
+        ## unstanced
+        self.run_speed = 10
+
+        ## stanced
+        self.walk_speed = 3
+        
+
+        # other
         self.gravity_acceleration = 0.8
         self.terminal_velocity = 10
 
         self.invincibility_duration = 10
         self.sword_delay = 25
 
-        # jump
-        self.jump_speed = 4
-        self.jump_time = 8 # max time to hold a jump in frames
+        # jump unstanced
+        self.jump_speed = 8
+        self.jump_time = 14 # max time to hold a jump in frames
         self.jump_timer = 0
         self.can_jump = False # see if player can continue to jump upwards by holding tge button
+
+        # jump stanced
+        self.stanced_jump_speed = 7
+        self.stanced_jump_time = 5 # max time to hold a jump in frames
 
 
     def damage(self, damage_box: DamageBox): # TODO: finish this
@@ -226,7 +237,90 @@ class Player(Entity): # TODO: add movement
         self.stun_timer = damage_box.stun_time
         self.invincibility_timer = self.invincibility_duration
 
-    def runLogic(self, buttons) -> list[DamageBox]:
+    def handleUnstanced(self, buttons) -> list[DamageBox]:
+        
+        if buttons[pygame.K_LEFT]:
+            self.speed.x -= self.run_speed
+            self.facing_left = True
+            self.setAnimationState(Entity.AnimationState.RUNNING)
+        if buttons[pygame.K_RIGHT]:
+            self.speed.x += self.run_speed
+            self.facing_left = False
+            self.setAnimationState(Entity.AnimationState.RUNNING)
+        ## jump
+        # initial jump
+        if self.grounded and buttons[pygame.K_z] and not self.buttons_last_frame[pygame.K_z]:
+            self.speed.y = -self.jump_speed
+            self.can_jump = True
+            self.jump_timer = 0
+            self.setAnimationState(Entity.AnimationState.JUMPING)
+        # holding space
+        if self.can_jump and buttons[pygame.K_z]:
+            if self.jump_timer < self.jump_time and not self.head_clipping:
+                self.speed.y = -self.jump_speed
+                self.jump_timer += 1
+            else:
+                self.can_jump = False
+        else:
+            self.can_jump = False
+
+
+        return []
+        
+    def handleStanced(self, buttons) -> list[DamageBox]:
+
+        
+        if buttons[pygame.K_LEFT]:
+            self.speed.x -= self.walk_speed
+            self.facing_left = True
+            self.setAnimationState(Entity.AnimationState.RUNNING)
+        if buttons[pygame.K_RIGHT]:
+            self.speed.x += self.walk_speed
+            self.facing_left = False
+            self.setAnimationState(Entity.AnimationState.RUNNING) # TODO: make this be like dir*speed
+        ## jump
+        # initial jump
+        if self.grounded and buttons[pygame.K_z] and not self.buttons_last_frame[pygame.K_z]:
+            self.speed.y = -self.stanced_jump_speed
+            self.can_jump = True
+            self.jump_timer = 0
+            self.setAnimationState(Entity.AnimationState.JUMPING)
+        # holding space
+        if self.can_jump and buttons[pygame.K_z]:
+            if self.jump_timer < self.stanced_jump_time and not self.head_clipping:
+                self.speed.y = -self.stanced_jump_speed
+                self.jump_timer += 1
+            else:
+                self.can_jump = False
+        else:
+            self.can_jump = False
+
+
+        db_list = []
+        if buttons[pygame.K_x] and not self.buttons_last_frame[pygame.K_x] and self.sword_timer < 0: # TODO: add hit polling
+            self.sword_timer = self.sword_delay
+            box_width = 20
+            box_x = (self.position.x - box_width) if self.facing_left else (self.position.x + self.size.x)
+
+            db_list.append(
+                DamageBox(
+                    x=box_x, 
+                    y=self.position.y + 10, 
+                    w=box_width, 
+                    h=28, 
+                    damage=10, 
+                    owner=DamageBox.Owner.PLAYER, 
+                    alive_time=5, 
+                    stun_time=10
+                )
+            )
+
+
+        return db_list
+    
+    def handle(self, buttons) -> list[DamageBox]:
+
+        
         """updates the player"""
         self.speed.x = 0
         self.invincibility_timer -= 1
@@ -243,59 +337,17 @@ class Player(Entity): # TODO: add movement
         if self.head_clipping:
             self.speed.y = max(0, self.speed.y)
         self.setAnimationState(Entity.AnimationState.IDLE)
-        if buttons[pygame.K_LEFT]:
-            self.speed.x -= self.run_speed
-            self.facing_left = True
-            self.setAnimationState(Entity.AnimationState.RUNNING)
-        if buttons[pygame.K_RIGHT]:
-            self.speed.x += self.run_speed
-            self.facing_left = False
-            self.setAnimationState(Entity.AnimationState.RUNNING)
-        ## jump
-        # initial jump
-        if self.grounded and buttons[pygame.K_z] and not self.buttons_last_frame[pygame.K_z]:
-            self.speed.y = -10
-            self.can_jump = True
-            self.jump_timer = 0
-            self.setAnimationState(Entity.AnimationState.JUMPING)
-        # holding space
-        if self.can_jump and buttons[pygame.K_z]:
-            if self.jump_timer < self.jump_time and not self.head_clipping:
-                self.speed.y = -10
-                self.jump_timer += 1
-            else:
-                self.can_jump = False
-        else:
-            self.can_jump = False
 
-        # if buttons[pygame.] # TODO: add hits
+        if buttons[pygame.K_LSHIFT] and not self.buttons_last_frame[pygame.K_LSHIFT] and self.grounded:
+            self.stanced = not self.stanced
 
 
+        
+        if self.stanced: db_list = self.handleStanced(buttons)
+        else:            db_list = self.handleUnstanced(buttons)
 
-        # print(f"position: {self.position}")
-        # print(f"speed:    {self.speed}")
-        # print(f"grounded: {self.grounded}")
+        
         self.position += self.speed
-
-        db_list = []
-        if buttons[pygame.K_x] and not self.buttons_last_frame[pygame.K_x] and self.sword_timer < 0: # TODO: add hit polling
-            self.sword_timer = self.sword_delay
-            box_width = 20
-            box_x = (self.position.x - box_width) if self.facing_left else (self.position.x + self.size.x)
-            
-            db_list.append(
-                DamageBox(
-                    x=box_x, 
-                    y=self.position.y + 10, 
-                    w=box_width, 
-                    h=28, 
-                    damage=10, 
-                    owner=DamageBox.Owner.PLAYER, 
-                    alive_time=5, 
-                    stun_time=10
-                )
-            )
-
         self.buttons_last_frame = copy.copy(buttons)
         return db_list
 
@@ -471,7 +523,7 @@ class World:
         for damage_box in self.damage_boxes: damage_box.tick()
 
         for enemy in self.enemies: self.damage_boxes += enemy.runLogic()
-        self.damage_boxes += self.player.runLogic(buttons)
+        self.damage_boxes += self.player.handle(buttons)
 
         self.handleCollisions()
 
