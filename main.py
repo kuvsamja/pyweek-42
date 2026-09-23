@@ -272,7 +272,7 @@ class Player(Entity): # TODO: add movement
 
         if dir != 0:
             self.speed.x += self.run_speed*dir
-            self.facing_left = bool(dir + 1)
+            self.facing_left = dir==-1
             self.setAnimationState(Entity.AnimationState.US_RUN)
         ## jump
         # initial jump
@@ -289,7 +289,7 @@ class Player(Entity): # TODO: add movement
                 self.can_jump = False
         else:
             self.can_jump = False
-            
+
 
         if not self.grounded:
             if self.speed.y > 0: self.setAnimationState(self.AnimationState.US_FALL)
@@ -307,7 +307,7 @@ class Player(Entity): # TODO: add movement
 
         if dir != 0:
             self.speed.x += self.walk_speed*dir
-            self.facing_left = bool(dir + 1)
+            self.facing_left = dir==-1
             self.setAnimationState(Entity.AnimationState.S_WALK)
 
         ## jump
@@ -388,7 +388,7 @@ class Player(Entity): # TODO: add movement
         self.buttons_last_frame = copy.copy(buttons)
 
         print(self.animation_state)
-        
+
         return db_list
 
 class World:
