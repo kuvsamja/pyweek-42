@@ -36,14 +36,15 @@ class DamageBox:
     alive_time: int # how long the box lingers in frames
 
 
-    def __init__(self, x, y, w, h, damage: float, owner: Owner, alive_time: int, stun_time: int):
+    def __init__(self, x, y, w, h, damage: float, owner: Owner, alive_time: int, stun_time: int, knockback_speed: float):
         self.box = pygame.Rect(x, y, w, h)
         self.damage = damage
         self.owner = owner
         self.stun_time = stun_time
-        
+
         self.alive_time = alive_time # TODO: add knockback
 
+        self.knockback_speed = knockback_speed
     def tick(self):
         """decreases the alive time, hitbox should be killed when it reaches 0"""
         self.alive_time -= 1
@@ -88,6 +89,7 @@ class Entity(pygame.sprite.Sprite):
         self.rect = pygame.Rect(0, 0, width, height)
         self._layer = z_index
         self.buttons_last_frame = []
+        self.sprite_name = name
 
         self.dead = False
         self.speed = pygame.Vector2(0, 0)
@@ -118,7 +120,10 @@ class Entity(pygame.sprite.Sprite):
         if self.frame_counter % self.animation_frequency != 0:
             return
         animation_duration = len(self.animation_frames[self.animation_state.value])
-        self.frame_counter %= self.animation_frequency * animation_duration
+        try:
+            self.frame_counter %= self.animation_frequency * animation_duration
+        except ZeroDivisionError:
+            print(f"Tweakuje zbog {self.sprite_name}")
         frame_id = self.frame_counter // self.animation_frequency
         if self.facing_left:
             self.image = self.animation_frames_flipped[self.animation_state.value][frame_id]
@@ -144,7 +149,9 @@ class Enemy(Entity):
 
         # state stuff
         self.hp = 100
-        
+        self.knockback_speed = 0
+        self.knockback_drop = 0.2
+
         self.invincibility_timer = 0
         self.stun_timer = 0
 
@@ -163,14 +170,15 @@ class Enemy(Entity):
     def damage(self, damage_box: DamageBox): # TODO: finish this
         print("b")
         if self.invincibility_timer > 0: return
-        
+
+        self.knockback_speed = damage_box.knockback_speed
         self.hp -= damage_box.damage
         self.stun_timer = damage_box.stun_time
         self.invincibility_timer = self.invincibility_duration
 
     def runLogic(self) -> list[DamageBox]:
         """updates the enemy"""
-        self.speed.x = 0
+        self.speed.x = self.knockback_speed
         self.invincibility_timer -= 1
         self.stun_timer -= 1
 
@@ -184,7 +192,10 @@ class Enemy(Entity):
         if self.head_clipping:
             self.speed.y = max(0, self.speed.y)
 
-
+        if self.knockback_speed > 0:
+            self.knockback_speed -= self.knockback_drop
+        elif self.knockback_speed < 0:
+            self.knockback_speed += self.knockback_drop
         self.position += self.speed
         print(f"hp: {self.hp}")
         # print(f"position: {self.position}")
@@ -200,6 +211,9 @@ class Player(Entity): # TODO: add movement
 
         # state stuff
         self.hp = 100
+        self.knockback_speed = 0
+        self.knockback_drop_us = 0.1 # how much knockback speed to decrease by frame
+        self.knockback_drop_s = 0.2
         # self.poise = 100 TODO: mabye this
         self.invincibility_timer = 0
         self.stun_timer = 0
@@ -220,7 +234,7 @@ class Player(Entity): # TODO: add movement
 
         ## stanced
         self.walk_speed = 3
-        
+
 
         # other
         self.gravity_acceleration = 0.8
@@ -247,8 +261,9 @@ class Player(Entity): # TODO: add movement
         self.stun_timer = damage_box.stun_time
         self.invincibility_timer = self.invincibility_duration
 
+        self.knockback_speed = damage_box.knockback_speed
     def handleUnstanced(self, buttons) -> list[DamageBox]:
-        
+
         if buttons[pygame.K_LEFT]:
             self.speed.x -= self.run_speed
             self.facing_left = True
@@ -275,7 +290,7 @@ class Player(Entity): # TODO: add movement
 
 
         return []
-        
+
     def handleStanced(self, buttons) -> list[DamageBox]:
 
         dir = 0
@@ -316,25 +331,25 @@ class Player(Entity): # TODO: add movement
 
             db_list.append(
                 DamageBox(
-                    x=box_x, 
-                    y=self.position.y + 10, 
-                    w=box_width, 
-                    h=28, 
-                    damage=10, 
-                    owner=DamageBox.Owner.PLAYER, 
-                    alive_time=5, 
-                    stun_time=10
+                    x=box_x,
+                    y=self.position.y + 10,
+                    w=box_width,
+                    h=28,
+                    damage=10,
+                    owner=DamageBox.Owner.PLAYER,
+                    alive_time=5,
+                    stun_time=10,
+                    knockback_speed=-5 if self.facing_left else 5
                 )
             )
 
 
         return db_list
-    
+
     def handle(self, buttons) -> list[DamageBox]:
 
-        
         """updates the player"""
-        self.speed.x = 0
+        self.speed.x = self.knockback_speed
         self.invincibility_timer -= 1
         self.stun_timer -= 1
         self.sword_timer -= 1
@@ -354,11 +369,14 @@ class Player(Entity): # TODO: add movement
             self.stanced = not self.stanced
 
 
-        
+
         if self.stanced: db_list = self.handleStanced(buttons)
         else:            db_list = self.handleUnstanced(buttons)
 
-        
+        if self.knockback_speed > 0:
+            self.knockback_speed -= self.knockback_drop_s if self.stanced else self.knockback_drop_us
+        elif self.knockback_speed < 0:
+            self.knockback_speed += self.knockback_drop_s if self.stanced else self.knockback_drop_us
         self.position += self.speed
         self.buttons_last_frame = copy.copy(buttons)
         return db_list
@@ -581,11 +599,11 @@ class Camera:
                             sprite.animation_frames_flipped[i][j] = pygame.transform.flip(animation[j], True, False)
                 elif isinstance(sprite, Platform):
                     sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h))
-                    
+
         self.world.all_sprites.update()
         self.world.all_sprites.draw(self.window)
         self.resize = False
-        
+
     def drawDebug(self):
         scale_x = self.pixel_width / self.world_width
         scale_y = self.pixel_height / self.world_height
@@ -606,17 +624,17 @@ class Camera:
                             sprite.animation_frames_flipped[i][j] = pygame.transform.flip(animation[j], True, False)
                 elif isinstance(sprite, Platform):
                     sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h))
-                    
+
         self.world.all_sprites.update()
         self.world.all_sprites.draw(self.window)
         self.resize = False
 
         for db in self.world.damage_boxes:
             screen_pos = self.pointToScreen(pygame.Vector2(db.box.x, db.box.y))
-            
+
             screen_w = int(db.box.width * scale_x)
             screen_h = int(db.box.height * scale_y)
-            
+
             debug_rect = pygame.Rect(screen_pos.x, screen_pos.y, screen_w, screen_h)
             pygame.draw.rect(self.window, (255, 0, 0), debug_rect, width=2)
 
