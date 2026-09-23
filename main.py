@@ -50,10 +50,20 @@ class DamageBox:
 
 class Entity(pygame.sprite.Sprite):
     class AnimationState(Enum):
-        IDLE = auto()
-        RUNNING = auto()
-        AIRBORNE = auto()
-        JUMPING = auto()
+        US_IDLE = auto()
+        US_RUNNING = auto()
+        US_RISING = auto()
+        US_FALLING = auto()
+
+        S_IDLE = auto()
+        S_WALKING = auto()
+        S_HIT1 = auto()
+        S_HIT2 = auto()
+        S_HIT3 = auto()
+        S_PARRY = auto()
+        S_RISING = auto()
+        S_FALLING = auto()
+
     animation_state: AnimationState
     position: pygame.Vector2
     size: pygame.Vector2
@@ -82,7 +92,7 @@ class Entity(pygame.sprite.Sprite):
         self.dead = False
         self.speed = pygame.Vector2(0, 0)
         self.gravity_acceleration = 1
-        self.animation_state = self.AnimationState.IDLE
+        self.animation_state = self.AnimationState.US_IDLE
         self.animation_frequency = 3 # update every 3 frames (3/60)
         self.frame_counter = 0
         self.animation_frames = [[] for _ in range(len(self.AnimationState) + 1)]
@@ -97,9 +107,9 @@ class Entity(pygame.sprite.Sprite):
             tup = [(sprite_width * x, 0, sprite_width, sprite_height) for x in range(image_count)]
             self.animation_frames[state.value] = [self.get_image(spritesheet, *frame) for frame in tup]
             self.animation_frames_flipped[state.value] = [pygame.transform.flip(self.get_image(spritesheet, *frame), True, False) for frame in tup]
-        if len(self.animation_frames[self.AnimationState.IDLE.value]) == 0:
-            raise FileNotFoundError(f"There is no IDLE animation spritesheet for Entity {name}! I looked at path: {os.path.join("assets", name+"_IDLE.png")}")
-        self.image = self.animation_frames[self.AnimationState.IDLE.value][0]
+        if len(self.animation_frames[self.AnimationState.US_IDLE.value]) == 0:
+            raise FileNotFoundError(f"There is no US_IDLE animation spritesheet for Entity {name}! I looked at path: {os.path.join("assets", name+"_US_IDLE.png")}")
+        self.image = self.animation_frames[self.AnimationState.US_IDLE.value][0]
     # sets camera-space coordinates to (x,y)
     def setCameraPosition(self, x, y):
         self.rect = pygame.Rect(x, y, self.size.x, self.size.y)
@@ -129,7 +139,7 @@ class Enemy(Entity):
     def __init__(self, x, y, z_index, name: str):
         """name: type of the enemy"""
         super().__init__(x, y, z_index, name, 48, 48)
-        self.animation_state = self.AnimationState.IDLE
+        self.animation_state = self.AnimationState.US_IDLE
         self.dead = False
 
         # state stuff
@@ -185,7 +195,7 @@ class Enemy(Entity):
 class Player(Entity): # TODO: add movement
     def __init__(self, x, y, z_index):
         super().__init__(x, y, z_index, "player", 48, 48) # player sprite size is 48x48
-        self.animation_state = self.AnimationState.IDLE
+        self.animation_state = self.AnimationState.US_IDLE
         self.dead = False
 
         # state stuff
@@ -242,18 +252,17 @@ class Player(Entity): # TODO: add movement
         if buttons[pygame.K_LEFT]:
             self.speed.x -= self.run_speed
             self.facing_left = True
-            self.setAnimationState(Entity.AnimationState.RUNNING)
+            self.setAnimationState(Entity.AnimationState.US_RUNNING)
         if buttons[pygame.K_RIGHT]:
             self.speed.x += self.run_speed
             self.facing_left = False
-            self.setAnimationState(Entity.AnimationState.RUNNING)
+            self.setAnimationState(Entity.AnimationState.US_RUNNING)
         ## jump
         # initial jump
         if self.grounded and buttons[pygame.K_z] and not self.buttons_last_frame[pygame.K_z]:
             self.speed.y = -self.jump_speed
             self.can_jump = True
             self.jump_timer = 0
-            self.setAnimationState(Entity.AnimationState.JUMPING)
         # holding space
         if self.can_jump and buttons[pygame.K_z]:
             if self.jump_timer < self.jump_time and not self.head_clipping:
@@ -273,18 +282,17 @@ class Player(Entity): # TODO: add movement
         if buttons[pygame.K_LEFT]:
             self.speed.x -= self.walk_speed
             self.facing_left = True
-            self.setAnimationState(Entity.AnimationState.RUNNING)
+            self.setAnimationState(Entity.AnimationState.US_RUNNING)
         if buttons[pygame.K_RIGHT]:
             self.speed.x += self.walk_speed
             self.facing_left = False
-            self.setAnimationState(Entity.AnimationState.RUNNING) # TODO: make this be like dir*speed
+            self.setAnimationState(Entity.AnimationState.US_RUNNING) # TODO: make this be like dir*speed
         ## jump
         # initial jump
         if self.grounded and buttons[pygame.K_z] and not self.buttons_last_frame[pygame.K_z]:
             self.speed.y = -self.stanced_jump_speed
             self.can_jump = True
             self.jump_timer = 0
-            self.setAnimationState(Entity.AnimationState.JUMPING)
         # holding space
         if self.can_jump and buttons[pygame.K_z]:
             if self.jump_timer < self.stanced_jump_time and not self.head_clipping:
@@ -336,7 +344,7 @@ class Player(Entity): # TODO: add movement
 
         if self.head_clipping:
             self.speed.y = max(0, self.speed.y)
-        self.setAnimationState(Entity.AnimationState.IDLE)
+        self.setAnimationState(Entity.AnimationState.US_IDLE)
 
         if buttons[pygame.K_LSHIFT] and not self.buttons_last_frame[pygame.K_LSHIFT] and self.grounded:
             self.stanced = not self.stanced
