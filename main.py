@@ -214,8 +214,6 @@ class Player(Entity): # TODO: add movement
         # state stuff
         self.hp = 100
         self.knockback_speed = 0
-        self.knockback_drop_us = 0.1 # how much knockback speed to decrease by frame
-        self.knockback_drop_s = 0.2
         # self.poise = 100 TODO: mabye this
         self.invincibility_timer = 0
         self.stun_timer = 0
@@ -233,9 +231,11 @@ class Player(Entity): # TODO: add movement
         # const parameters
         ## unstanced
         self.run_speed = 10
+        self.knockback_drop_us = 0.1 # how much knockback speed to decrease by frame
 
         ## stanced
         self.walk_speed = 3
+        self.knockback_drop_s = 0.2
 
 
         # other
