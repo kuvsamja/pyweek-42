@@ -75,17 +75,19 @@ class Entity(pygame.sprite.Sprite):
     gravity_acceleration: float
     dead: bool
     animation_frames: list[list[pygame.Surface]]
+    hitbox: pygame.Rect
     def get_image(self, sheet, x, y, width, height):
         rect = pygame.Rect(x, y, width, height)
         image = sheet.subsurface(rect)
         return image
-    def __init__(self, x:int, y:int, z_index:int, name: str, sprite_width: int, sprite_height: int):
+    def __init__(self, x:int, y:int, z_index:int, name: str, sprite_width: int, sprite_height: int, hitbox: pygame.Rect):
         super().__init__()
         # image loading
         width = sprite_width
         height = sprite_height
         # other stuff
         self.facing_left = False
+        self.hitbox = hitbox
         self.position = pygame.Vector2(x, y)
         self.size = pygame.Vector2(width, height)
         self.rect = pygame.Rect(0, 0, width, height)
@@ -141,11 +143,10 @@ class Entity(pygame.sprite.Sprite):
                 self.image = self.animation_frames[new_animation_state.value][0]
             else:
                 self.image = self.animation_frames_flipped[new_animation_state.value][0]
-
 class Enemy(Entity):
     def __init__(self, x, y, z_index, name: str):
         """name: type of the enemy"""
-        super().__init__(x, y, z_index, name, 48, 48)
+        super().__init__(x, y, z_index, name, 48, 48, pygame.Rect(24,16,12,32))
         self.animation_state = self.AnimationState.US_IDLE
         self.dead = False
 
@@ -208,7 +209,7 @@ class Enemy(Entity):
 
 class Player(Entity): # TODO: add movement
     def __init__(self, x, y, z_index):
-        super().__init__(x, y, z_index, "player", 48, 48) # player sprite size is 48x48
+        super().__init__(x, y, z_index, "player", 48, 48, pygame.Rect(16,16,16,32)) # player sprite size is 48x48
         self.animation_state = self.AnimationState.US_IDLE
         self.dead = False
 
@@ -248,7 +249,11 @@ class Player(Entity): # TODO: add movement
         self.knockback_drop_s = 0.2
         self.knockback_drop_s_block = 0.5
 
+<<<<<<< HEAD
         self.parry_window_base = 8
+=======
+        self.parry_window = 8
+>>>>>>> 9c29883 (Added prototype of hitboxes)
 
         ## other
         self.gravity_acceleration = 0.8
@@ -677,7 +682,6 @@ class Camera:
                 pos.y
             )
             if self.resize:
-
                 scaled_w = int(sprite.size.x * scale_x)
                 scaled_h = int(sprite.size.y * scale_y)
                 if isinstance(sprite, Entity):
@@ -690,6 +694,17 @@ class Camera:
 
         self.world.all_sprites.update()
         self.world.all_sprites.draw(self.window)
+        for sprite in self.world.all_sprites:
+            if isinstance(sprite, Entity):
+                hitbox_world_pos = pygame.Vector2(
+                    sprite.hitbox.x + sprite.position.x,
+                    sprite.hitbox.y + sprite.position.y
+                )
+                screen_pos = self.pointToScreen(hitbox_world_pos)
+                screen_w = int(sprite.hitbox.w * scale_x)
+                screen_h = int(sprite.hitbox.h * scale_y)
+                temp_r = pygame.Rect(int(screen_pos.x), int(screen_pos.y), screen_w, screen_h)
+                pygame.draw.rect(self.window, (255, 0, 0), temp_r, width=3)
         self.resize = False
 
         for db in self.world.damage_boxes:
