@@ -194,8 +194,10 @@ class Enemy(Entity):
 
         if self.knockback_speed > 0:
             self.knockback_speed -= self.knockback_drop
+            self.knockback_speed = max(self.knockback_speed, 0)
         elif self.knockback_speed < 0:
             self.knockback_speed += self.knockback_drop
+            self.knockback_speed = min(self.knockback_speed, 0)
         self.position += self.speed
         # print(f"hp: {self.hp}")
         # print(f"position: {self.position}")
@@ -336,7 +338,7 @@ class Player(Entity): # TODO: add movement
         if buttons[pygame.K_x] and not self.buttons_last_frame[pygame.K_x] and self.sword_timer < 0: # TODO: add hit polling
             self.sword_timer = self.sword_delay
             box_width = 20
-            box_x = (self.position.x - box_width) if not self.facing_left else (self.position.x + self.size.x)
+            box_x = (self.position.x - box_width) if self.facing_left else (self.position.x + self.size.x)
 
             db_list.append(
                 DamageBox(
