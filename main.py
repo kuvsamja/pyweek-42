@@ -278,14 +278,18 @@ class Player(Entity): # TODO: add movement
         
     def handleStanced(self, buttons) -> list[DamageBox]:
 
-        
-        if buttons[pygame.K_LEFT]:
-            self.speed.x -= self.walk_speed
-            self.facing_left = True
+        dir = 0
+        if buttons[pygame.K_LEFT]: dir = -1
+        if buttons[pygame.K_RIGHT]: dir = 1
+        if buttons[pygame.K_LEFT] and buttons[pygame.K_RIGHT]: dir = 0
+
+        if dir != 0:
+            self.speed.x += self.walk_speed*dir
+            self.facing_left = bool(dir + 1)
             self.setAnimationState(Entity.AnimationState.US_RUNNING)
-        if buttons[pygame.K_RIGHT]:
-            self.speed.x += self.walk_speed
-            self.facing_left = False
+        # if buttons[pygame.K_RIGHT]:
+        #     self.speed.x += self.walk_speed
+        #     self.facing_left = False
             self.setAnimationState(Entity.AnimationState.US_RUNNING) # TODO: make this be like dir*speed
         ## jump
         # initial jump
