@@ -218,7 +218,8 @@ class Player(Entity): # TODO: add movement
         self.invincibility_timer = 0
         self.stun_timer = 0
         self.sword_timer = 0
-
+        self.swing_count = 0
+        
         self.stanced = False
 
         self.grounded = False
@@ -264,6 +265,7 @@ class Player(Entity): # TODO: add movement
         self.invincibility_timer = self.invincibility_duration
 
         self.knockback_speed = damage_box.knockback_speed
+        
     def handleUnstanced(self, buttons) -> list[DamageBox]:
         self.setAnimationState(Entity.AnimationState.US_IDLE)
 
@@ -297,6 +299,7 @@ class Player(Entity): # TODO: add movement
             if self.speed.y > 0: self.setAnimationState(self.AnimationState.US_FALL)
             else: self.setAnimationState(self.AnimationState.US_RISE)
 
+            
         return []
 
     def handleStanced(self, buttons) -> list[DamageBox]:
@@ -336,6 +339,12 @@ class Player(Entity): # TODO: add movement
 
         db_list = []
         if buttons[pygame.K_x] and not self.buttons_last_frame[pygame.K_x] and self.sword_timer < 0: # TODO: add hit polling
+            if self.sword_timer > -20:
+                self.swing_count += 1
+                self.swing_count %= 3
+            else:
+                self.swing_count = 0
+                
             self.sword_timer = self.sword_delay
             box_width = 20
             box_x = (self.position.x - box_width) if self.facing_left else (self.position.x + self.size.x)
@@ -353,7 +362,12 @@ class Player(Entity): # TODO: add movement
                     knockback_speed=-5 if self.facing_left else 5
                 )
             )
+        print(self.swing_count)
+        print(self.sword_timer)
 
+        
+        if self.sword_timer >= 0:
+            self.setAnimationState(self.AnimationState(self.AnimationState.S_HIT1.value + self.swing_count))
 
         return db_list
 
