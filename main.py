@@ -61,7 +61,7 @@ class Entity(pygame.sprite.Sprite):
         S_HIT1 = auto()
         S_HIT2 = auto()
         S_HIT3 = auto()
-        S_PARRY = auto()
+        S_BLOCK = auto()
         S_RISE = auto()
         S_FALL = auto()
 
@@ -168,7 +168,6 @@ class Enemy(Entity):
         self.invincibility_duration = 10 # change for the boss
 
     def damage(self, damage_box: DamageBox): # TODO: finish this
-        print("b")
         if self.invincibility_timer > 0: return
 
         self.knockback_speed = damage_box.knockback_speed
@@ -217,8 +216,12 @@ class Player(Entity): # TODO: add movement
         # self.poise = 100 TODO: mabye this
         self.invincibility_timer = 0
         self.stun_timer = 0
+        
         self.sword_timer = 0
         self.swing_count = 0
+
+        self.parry_timer = 0
+        self.blocking = False
         
         self.stanced = False
 
@@ -229,6 +232,7 @@ class Player(Entity): # TODO: add movement
         self.can_jump = False
         self.looking_right = True
 
+
         # const parameters
         ## unstanced
         self.run_speed = 10
@@ -237,9 +241,11 @@ class Player(Entity): # TODO: add movement
         ## stanced
         self.walk_speed = 3
         self.knockback_drop_s = 0.2
+        self.knockback_drop_s_block = 0.5
+        
+        self.parry_window = 8
 
-
-        # other
+        ## other
         self.gravity_acceleration = 0.8
         self.terminal_velocity = 10
 
@@ -265,7 +271,7 @@ class Player(Entity): # TODO: add movement
         self.invincibility_timer = self.invincibility_duration
 
         self.knockback_speed = damage_box.knockback_speed
-        
+
     def handleUnstanced(self, buttons) -> list[DamageBox]:
         self.setAnimationState(Entity.AnimationState.US_IDLE)
 
@@ -299,29 +305,38 @@ class Player(Entity): # TODO: add movement
             if self.speed.y > 0: self.setAnimationState(self.AnimationState.US_FALL)
             else: self.setAnimationState(self.AnimationState.US_RISE)
 
-            
+
         return []
 
     def handleStanced(self, buttons) -> list[DamageBox]:
         self.setAnimationState(Entity.AnimationState.S_IDLE)
 
+
+        self.blocking = False
+        if buttons[pygame.K_c]:
+            if not self.buttons_last_frame[pygame.K_c]:
+                self.parry_timer = self.parry_window
+            self.blocking = True
+            self.setAnimationState(self.AnimationState.S_BLOCK) # TODO: make parry decrease when spammed
+            return []
+        
         dir = 0
         if buttons[pygame.K_LEFT]: dir = -1
         if buttons[pygame.K_RIGHT]: dir = 1
         if buttons[pygame.K_LEFT] and buttons[pygame.K_RIGHT]: dir = 0
-
+        
         if dir != 0:
             self.speed.x += self.walk_speed*dir
             self.facing_left = dir==-1
             self.setAnimationState(Entity.AnimationState.S_WALK)
 
-        ## jump
-        # initial jump
+        # jump
+        ## initial jump
         if self.grounded and buttons[pygame.K_z] and not self.buttons_last_frame[pygame.K_z]:
             self.speed.y = -self.stanced_jump_speed
             self.can_jump = True
             self.jump_timer = 0
-        # holding space
+        ## holding space
         if self.can_jump and buttons[pygame.K_z]:
             if self.jump_timer < self.stanced_jump_time and not self.head_clipping:
                 self.speed.y = -self.stanced_jump_speed
@@ -344,7 +359,7 @@ class Player(Entity): # TODO: add movement
                 self.swing_count %= 3
             else:
                 self.swing_count = 0
-                
+
             self.sword_timer = self.sword_delay
             box_width = 20
             box_x = (self.position.x - box_width) if self.facing_left else (self.position.x + self.size.x)
@@ -362,10 +377,8 @@ class Player(Entity): # TODO: add movement
                     knockback_speed=-5 if self.facing_left else 5
                 )
             )
-        print(self.swing_count)
-        print(self.sword_timer)
 
-        
+
         if self.sword_timer >= 0:
             self.setAnimationState(self.AnimationState(self.AnimationState.S_HIT1.value + self.swing_count))
 
@@ -377,7 +390,8 @@ class Player(Entity): # TODO: add movement
         self.invincibility_timer -= 1
         self.stun_timer -= 1
         self.sword_timer -= 1
-
+        self.parry_timer -= 1
+        
         if self.grounded:
             self.speed.y = min(self.speed.y, 0)
 
@@ -397,13 +411,16 @@ class Player(Entity): # TODO: add movement
         else:            db_list = self.handleUnstanced(buttons)
 
         if self.knockback_speed > 0:
-            self.knockback_speed -= self.knockback_drop_s if self.stanced else self.knockback_drop_us
+            if self.blocking:  self.knockback_speed -= self.knockback_drop_s_block
+            elif self.stanced: self.knockback_speed -= self.knockback_drop_s
+            else:              self.knockback_speed -= self.knockback_drop_us
         elif self.knockback_speed < 0:
-            self.knockback_speed += self.knockback_drop_s if self.stanced else self.knockback_drop_us
+            if self.blocking:  self.knockback_speed += self.knockback_drop_s_block
+            elif self.stanced: self.knockback_speed += self.knockback_drop_s
+            else:              self.knockback_speed += self.knockback_drop_us
         self.position += self.speed
         self.buttons_last_frame = copy.copy(buttons)
 
-        print(self.animation_state)
 
         return db_list
 
