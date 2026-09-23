@@ -249,11 +249,7 @@ class Player(Entity): # TODO: add movement
         self.knockback_drop_s = 0.2
         self.knockback_drop_s_block = 0.5
 
-<<<<<<< HEAD
         self.parry_window_base = 8
-=======
-        self.parry_window = 8
->>>>>>> 9c29883 (Added prototype of hitboxes)
 
         ## other
         self.gravity_acceleration = 0.8
