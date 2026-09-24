@@ -146,7 +146,7 @@ class Entity(pygame.sprite.Sprite):
 class Enemy(Entity):
     def __init__(self, x, y, z_index, name: str):
         """name: type of the enemy"""
-        super().__init__(x, y, z_index, name, 48, 48, pygame.Rect(24,16,12,32))
+        super().__init__(x, y, z_index, name, 48, 48, pygame.Rect(16,16,16,32))
         self.animation_state = self.AnimationState.US_IDLE
         self.dead = False
 
@@ -625,18 +625,18 @@ class World:
                 for enemy in self.enemies:
                     if db.box.colliderect(
                         pygame.Rect(
-                            enemy.position.x,
-                            enemy.position.y,
-                            enemy.size.x,
-                            enemy.size.y
+                            enemy.position.x + enemy.hitbox.x,
+                            enemy.position.y + enemy.hitbox.y,
+                            enemy.hitbox.x,
+                            enemy.hitbox.y
                         )
                     ):
                         enemy.damage(db)
             elif db.owner == DamageBox.Owner.SMALL_ENEMY and db.box.colliderect(
-                    pygame.Rect(self.player.position.x,
-                                self.player.position.y,
-                                self.player.size.x,
-                                self.player.size.y)):
+                    pygame.Rect(self.player.position.x + self.player.hitbox.x,
+                                self.player.position.y + self.player.hitbox.y,
+                                self.player.hitbox.x,
+                                self.player.hitbox.y)):
                     self.player.damage(db)
 
     def handleCollisions(self):
