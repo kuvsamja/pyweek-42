@@ -157,7 +157,9 @@ class Enemy(Entity):
 
         self.invincibility_timer = 0
         self.stun_timer = 0
-
+        self.is_hitting = False
+        self.hit_timer = 0
+        
         self.grounded = False
         self.head_clipping = False
         self.wall_to_left = False
@@ -169,6 +171,11 @@ class Enemy(Entity):
         self.gravity_acceleration = 0.8
         self.terminal_velocity = 10
         self.invincibility_duration = 10 # change for the boss
+        self.hit_time = 40
+        self.player_detection_dist = 40
+        self.player_hit_dist = 10
+        self.sword_box_width = 100
+        self.sword_box_height = 20
 
     def damage(self, damage_box: DamageBox): # TODO: finish this
         if self.invincibility_timer > 0: return
@@ -178,11 +185,12 @@ class Enemy(Entity):
         self.stun_timer = damage_box.stun_time
         self.invincibility_timer = self.invincibility_duration
 
-    def runLogic(self) -> list[DamageBox]:
+    def handle(self, player_x: float) -> list[DamageBox]:
         """updates the enemy"""
         self.speed.x = self.knockback_speed
         self.invincibility_timer -= 1
         self.stun_timer -= 1
+        self.hit_timer -= 1
 
         if self.grounded:
             self.speed.y = min(self.speed.y, 0)
@@ -194,6 +202,33 @@ class Enemy(Entity):
         if self.head_clipping:
             self.speed.y = max(0, self.speed.y)
 
+        if abs(self.position.x - player_x) < self.player_hit_dist and self.hit_timer < 0:
+            self.hit_timer = self.hit_time
+        print(self.position.x)
+        if player_x is not None and self.hit_timer < 0:
+            dir = 1 if self.position.x - player_x < 0 else -1
+            self.speed.x += self.run_speed * dir
+
+        
+        box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
+        db = []
+        if self.hit_timer >= 0:
+            self.setAnimationState(self.AnimationState.S_HIT1)
+            if self.hit_timer == int(self.hit_time / 2):
+                db.append(
+                    DamageBox(
+                        x=box_x,
+                        y=self.position.y + self.size.y / 2 - self.sword_box_height / 2,
+                        w=self.sword_box_width,
+                        h=self.sword_box_height,
+                        damage=10,
+                        owner=DamageBox.Owner.PLAYER,
+                        alive_time=5,
+                        stun_time=10,
+                        knockback_speed=-5 if self.facing_left else 5
+                    )
+                )
+        
         if self.knockback_speed > 0:
             self.knockback_speed -= self.knockback_drop
             self.knockback_speed = max(self.knockback_speed, 0)
@@ -201,11 +236,12 @@ class Enemy(Entity):
             self.knockback_speed += self.knockback_drop
             self.knockback_speed = min(self.knockback_speed, 0)
         self.position += self.speed
+
         # print(f"hp: {self.hp}")
         # print(f"position: {self.position}")
         # print(f"speed:    {self.speed}")
         # print(f"grounded: {self.grounded}")
-        return []
+        return db
 
 class Player(Entity): # TODO: add movement
     def __init__(self, x, y, z_index):
@@ -250,6 +286,9 @@ class Player(Entity): # TODO: add movement
         self.knockback_drop_s_block = 0.5
 
         self.parry_window_base = 8
+        
+        self.sword_box_width = 100
+        self.sword_box_height = 20
 
         ## other
         self.gravity_acceleration = 0.8
@@ -377,15 +416,14 @@ class Player(Entity): # TODO: add movement
                 self.swing_count = 0
 
             self.sword_timer = self.sword_delay
-            box_width = 20
-            box_x = (self.position.x - box_width) if self.facing_left else (self.position.x + self.size.x)
+            box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
 
             db_list.append(
                 DamageBox(
                     x=box_x,
-                    y=self.position.y + 10,
-                    w=box_width,
-                    h=28,
+                    y=self.position.y + self.size.y / 2 - self.sword_box_height / 2,
+                    w=self.sword_box_width,
+                    h=self.sword_box_height,
                     damage=10,
                     owner=DamageBox.Owner.PLAYER,
                     alive_time=5,
@@ -615,8 +653,8 @@ class World:
 
         self.damage_boxes = [db for db in self.damage_boxes if db.alive_time > 0]
         for damage_box in self.damage_boxes: damage_box.tick()
-
-        for enemy in self.enemies: self.damage_boxes += enemy.runLogic()
+        
+        for enemy in self.enemies: self.damage_boxes += enemy.handle(100)
         self.damage_boxes += self.player.handle(buttons)
 
         self.handleCollisions()
