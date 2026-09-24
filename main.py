@@ -839,15 +839,19 @@ def main():
     # fonts and messages
     font = pygame.font.SysFont("Arial", 24, bold=True)
 
-    char_index = 0
-    MESSAGE1 = "A long time ago,\nin a galaxy, far, far away"
-    current_text = 0
+    total_char_index = 0
+    word_char_index = 0
+    MESSAGE1 = ["A long time ago,", "in a galaxy, far, far away"]
+    MESSAGE1LEN = sum(len(item) for item in MESSAGE1)
+    last_text = []
+    current_text = None
+    current_word = 0
     next_char_time = 0
-    typing_speed = 0.12
+    typing_speed = 0.11
     time_finished = 0
     fadeaway_time = 3
     black_time = 0.5 # seconds to be black after text completely dissapears
-
+    text_stay_time = 1.5 # seconds for text to stay before fading away
     clock = pygame.Clock()
     running = True
     while running:
@@ -858,14 +862,28 @@ def main():
         window.fill((0, 0, 0))
         buttons = pygame.key.get_pressed()
 
-        if char_index < len(MESSAGE1):
+        if total_char_index < MESSAGE1LEN:
             current_time = perf_counter()
+
             if current_time >= next_char_time:
-                char_index += 1
-                current_text = MESSAGE1[:char_index]  # Slice string up to the current index
+                word_char_index += 1
+
+                current_text = MESSAGE1[current_word][:word_char_index]
+
+                if word_char_index == len(MESSAGE1[current_word]):
+                    if current_word + 1 < len(MESSAGE1):
+                        last_text.append(current_text)
+                        current_text = ""
+                    print(last_text)
+                    print("cur word: " + str(current_text))
+
+                    current_word += 1
+                    word_char_index = 0
+
                 next_char_time = current_time + typing_speed
-        elif char_index==len(MESSAGE1) and time_finished==0:
-            time_finished = perf_counter()
+                total_char_index += 1
+        elif total_char_index==MESSAGE1LEN and time_finished==0:
+            time_finished = perf_counter() + text_stay_time
         elif perf_counter() - time_finished > fadeaway_time + black_time:
             world.advancePhysics(buttons)
             camera.moveCamera()
@@ -874,14 +892,22 @@ def main():
         fps = int(clock.get_fps())
         fps_text = font.render(f"FPS: {fps}", True, pygame.Color(255,0,0))
         window.blit(fps_text, (10, 10))
-        if time_finished==0:
+        if time_finished==0 or perf_counter() - time_finished < 0:
+            for i, t in enumerate(last_text):
+                message_text = font.render(f"{t}", True, pygame.Color(255,255,255))
+                window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*i))
             message_text = font.render(f"{current_text}", True, pygame.Color(255,255,255))
-            window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200))
-        elif perf_counter() - time_finished < fadeaway_time:
+
+            window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*len(last_text)))
+        elif perf_counter() - time_finished > 0 and perf_counter() - time_finished < fadeaway_time:
             dt = perf_counter() - time_finished
             dtClamped = (1 - dt/fadeaway_time)
+            for i, t in enumerate(last_text):
+                message_text = font.render(f"{t}", True, pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
+                window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*i))
             message_text = font.render(f"{current_text}", True, pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
-            window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200))
+            window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*len(last_text)))
+
         pygame.display.flip()
 
         clock.tick(60)
