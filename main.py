@@ -167,13 +167,13 @@ class Enemy(Entity):
         self.looking_right = True
 
         # const parameters
-        self.run_speed = 4
+        self.run_speed = 1
         self.gravity_acceleration = 0.8
         self.terminal_velocity = 10
         self.invincibility_duration = 10 # change for the boss
         self.hit_time = 40
-        self.player_detection_dist = 40
-        self.player_hit_dist = 10
+        self.player_detection_dist = 200
+        self.player_hit_dist = 100
         self.sword_box_width = 100
         self.sword_box_height = 20
 
@@ -202,11 +202,13 @@ class Enemy(Entity):
         if self.head_clipping:
             self.speed.y = max(0, self.speed.y)
 
+        dir = 0
+        if self.hit_timer < 0:
+            dir = 1 if self.position.x - player_x < 0 else -1
+            self.facing_left = dir==-1
         if abs(self.position.x - player_x) < self.player_hit_dist and self.hit_timer < 0:
             self.hit_timer = self.hit_time
-        print(self.position.x)
-        if player_x is not None and self.hit_timer < 0:
-            dir = 1 if self.position.x - player_x < 0 else -1
+        if player_x is not None and self.hit_timer < 0 and abs(self.position.x - player_x) < self.player_detection_dist: # TODO: make the dist checl the same left and right
             self.speed.x += self.run_speed * dir
 
         
@@ -222,7 +224,7 @@ class Enemy(Entity):
                         w=self.sword_box_width,
                         h=self.sword_box_height,
                         damage=10,
-                        owner=DamageBox.Owner.PLAYER,
+                        owner=DamageBox.Owner.SMALL_ENEMY,
                         alive_time=5,
                         stun_time=10,
                         knockback_speed=-5 if self.facing_left else 5
@@ -307,13 +309,15 @@ class Player(Entity): # TODO: add movement
         self.stanced_jump_speed = 7
         self.stanced_jump_time = 5 # max time to hold a jump in frames
 
-    def parryCallback(self):
-        pass
+    def parryCallback(self, damage_box):
+        print("parry")
+        self.invincibility_timer = self.invincibility_duration
+        self.knockback_speed = damage_box.knockback_speed
 
     def damage(self, damage_box: DamageBox): # TODO: finish this
         if self.invincibility_timer > 0: return
         if self.parry_timer >= 0:
-           self.parryCallback()
+           self.parryCallback(damage_box)
            return;
 
         self.hp -= damage_box.damage
@@ -360,7 +364,6 @@ class Player(Entity): # TODO: add movement
 
     def handleStanced(self, buttons) -> list[DamageBox]:
         self.setAnimationState(Entity.AnimationState.S_IDLE)
-        print(self.parry_timer >= 0)
 
         self.blocking = False
         if buttons[pygame.K_c]:
@@ -654,7 +657,7 @@ class World:
         self.damage_boxes = [db for db in self.damage_boxes if db.alive_time > 0]
         for damage_box in self.damage_boxes: damage_box.tick()
         
-        for enemy in self.enemies: self.damage_boxes += enemy.handle(100)
+        for enemy in self.enemies: self.damage_boxes += enemy.handle(self.player.position.x)
         self.damage_boxes += self.player.handle(buttons)
 
         self.handleCollisions()
