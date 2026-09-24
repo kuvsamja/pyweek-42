@@ -1,6 +1,7 @@
 import copy
 import os
 from enum import Enum, auto
+from time import perf_counter
 
 import pygame
 
@@ -513,11 +514,16 @@ class World:
 
 
     @staticmethod
-    def entityPlatformCollision(platform: Platform, entity: Entity):
-        return (platform.position.x < entity.position.x + entity.size.x and
-            platform.position.x + platform.size.x > entity.position.x and
-                platform.position.y < entity.position.y + entity.size.y and
-                platform.position.y + platform.size.y > entity.position.y)
+    def entityPlatformCollision(platform: Platform, entity: Entity) -> bool:
+        ex = entity.position.x + entity.hitbox.x
+        ey = entity.position.y + entity.hitbox.y
+
+        return (
+            platform.position.x < ex + entity.hitbox.w and
+            platform.position.x + platform.size.x > ex and
+            platform.position.y < ey + entity.hitbox.h and
+            platform.position.y + platform.size.y > ey
+        )
 
     @staticmethod
     def platformRectCollision(rect: pygame.Rect, platform: Platform):
@@ -536,21 +542,26 @@ class World:
         for platform in self.platforms:
             if not self.entityPlatformCollision(platform, self.player):
                 continue
+
+            ex = self.player.position.x + self.player.hitbox.x
+            ey = self.player.position.y + self.player.hitbox.y
+
             overlap_x = min(
-                            (self.player.position.x + self.player.size.x) - platform.position.x,
-                            (platform.position.x + platform.size.x) - self.player.position.x
-                        )
-            overlap_y = min(
-                (self.player.position.y + self.player.size.y) - platform.position.y,
-                (platform.position.y + platform.size.y) - self.player.position.y
+                (ex + self.player.hitbox.w) - platform.position.x,
+                (platform.position.x + platform.size.x) - ex
             )
+            overlap_y = min(
+                (ey + self.player.hitbox.h) - platform.position.y,
+                (platform.position.y + platform.size.y) - ey
+            )
+
             if overlap_x < overlap_y:
-                if self.player.position.x < platform.position.x:
+                if (ex + self.player.hitbox.w / 2) < (platform.position.x + platform.size.x / 2):
                     self.player.position.x -= overlap_x
                 else:
                     self.player.position.x += overlap_x
             else:
-                if self.player.position.y < platform.position.y:
+                if (ey + self.player.hitbox.h / 2) < (platform.position.y + platform.size.y / 2):
                     self.player.position.y -= overlap_y
                 else:
                     self.player.position.y += overlap_y
@@ -563,7 +574,7 @@ class World:
 
         touch_check = pygame.Rect(1, 1, 1, 1) # TODO: fix player floating by one pixel
 
-        feet_box = pygame.Rect(self.player.position.x, self.player.position.y + touch_check.h + self.player.size.y, self.player.size.x, touch_check.h)
+        feet_box = pygame.Rect(self.player.position.x + self.player.hitbox.x, self.player.position.y + self.player.hitbox.y + self.player.hitbox.h, self.player.hitbox.x, touch_check.h)
         head_box = pygame.Rect(self.player.position.x, self.player.position.y - touch_check.h, self.player.size.x, touch_check.h)
         left_box = pygame.Rect(self.player.position.x - touch_check.w, self.player.position.y + self.player.size.y / 4, touch_check.w, self.player.size.y / 2)
         right_box = pygame.Rect(self.player.position.x + self.player.size.x, self.player.position.y + self.player.size.y / 4, touch_check.w, self.player.size.y / 2)
@@ -586,7 +597,7 @@ class World:
 
             touch_check = pygame.Rect(1, 1, 1, 1) # TODO: fix player floating by one pixel
 
-            feet_box = pygame.Rect(enemy.position.x, enemy.position.y + touch_check.h + enemy.size.y, enemy.size.x, touch_check.h)
+            feet_box = pygame.Rect(enemy.position.x + enemy.hitbox.x, enemy.position.y + enemy.hitbox.y + enemy.hitbox.h, enemy.hitbox.w, touch_check.h)
             head_box = pygame.Rect(enemy.position.x, enemy.position.y - touch_check.h, enemy.size.x, touch_check.h)
             left_box = pygame.Rect(enemy.position.x - touch_check.w, enemy.position.y + enemy.size.y / 4, touch_check.w, enemy.size.y / 2)
             right_box = pygame.Rect(enemy.position.x + enemy.size.x, enemy.position.y + enemy.size.y / 4, touch_check.w, enemy.size.y / 2)
@@ -604,21 +615,23 @@ class World:
             for platform in self.platforms:
                 if not self.entityPlatformCollision(platform, enemy):
                     continue
+                ex = enemy.position.x + enemy.hitbox.x
+                ey = enemy.position.y + enemy.hitbox.y
                 overlap_x = min(
-                                (enemy.position.x + enemy.size.x) - platform.position.x,
-                                (platform.position.x + platform.size.x) - enemy.position.x
+                                (ex + enemy.hitbox.w) - platform.position.x,
+                                (platform.position.x + platform.size.x) - ex
                             )
                 overlap_y = min(
-                    (enemy.position.y + enemy.size.y) - platform.position.y,
-                    (platform.position.y + platform.size.y) - enemy.position.y
+                    (ey + enemy.hitbox.h) - platform.position.y,
+                    (platform.position.y + platform.size.y) - ey
                 )
                 if overlap_x < overlap_y:
-                    if enemy.position.x < platform.position.x:
+                    if ex < platform.position.x:
                         enemy.position.x -= overlap_x
                     else:
                         enemy.position.x += overlap_x
                 else:
-                    if enemy.position.y < platform.position.y:
+                    if ey < platform.position.y:
                         enemy.position.y -= overlap_y
                     else:
                         enemy.position.y += overlap_y
@@ -632,16 +645,16 @@ class World:
                         pygame.Rect(
                             enemy.position.x + enemy.hitbox.x,
                             enemy.position.y + enemy.hitbox.y,
-                            enemy.hitbox.x,
-                            enemy.hitbox.y
+                            enemy.hitbox.w,
+                            enemy.hitbox.h
                         )
                     ):
                         enemy.damage(db)
             elif db.owner == DamageBox.Owner.SMALL_ENEMY and db.box.colliderect(
                     pygame.Rect(self.player.position.x + self.player.hitbox.x,
                                 self.player.position.y + self.player.hitbox.y,
-                                self.player.hitbox.x,
-                                self.player.hitbox.y)):
+                                self.player.hitbox.w,
+                                self.player.hitbox.h)):
                     self.player.damage(db)
 
     def handleCollisions(self):
@@ -823,7 +836,17 @@ def main():
 
     camera = Camera(-100, -100, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, window)
 
+    # fonts and messages
     font = pygame.font.SysFont("Arial", 24, bold=True)
+
+    char_index = 0
+    MESSAGE1 = "A long time ago,\nin a galaxy, far, far away"
+    current_text = 0
+    next_char_time = 0
+    typing_speed = 0.12
+    time_finished = 0
+    fadeaway_time = 3
+    black_time = 0.5 # seconds to be black after text completely dissapears
 
     clock = pygame.Clock()
     running = True
@@ -834,13 +857,31 @@ def main():
 
         window.fill((0, 0, 0))
         buttons = pygame.key.get_pressed()
-        world.advancePhysics(buttons)
-        camera.moveCamera()
-        camera.drawDebug()
+
+        if char_index < len(MESSAGE1):
+            current_time = perf_counter()
+            if current_time >= next_char_time:
+                char_index += 1
+                current_text = MESSAGE1[:char_index]  # Slice string up to the current index
+                next_char_time = current_time + typing_speed
+        elif char_index==len(MESSAGE1) and time_finished==0:
+            time_finished = perf_counter()
+        elif perf_counter() - time_finished > fadeaway_time + black_time:
+            world.advancePhysics(buttons)
+            camera.moveCamera()
+            camera.drawDebug()
 
         fps = int(clock.get_fps())
         fps_text = font.render(f"FPS: {fps}", True, pygame.Color(255,0,0))
         window.blit(fps_text, (10, 10))
+        if time_finished==0:
+            message_text = font.render(f"{current_text}", True, pygame.Color(255,255,255))
+            window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200))
+        elif perf_counter() - time_finished < fadeaway_time:
+            dt = perf_counter() - time_finished
+            dtClamped = (1 - dt/fadeaway_time)
+            message_text = font.render(f"{current_text}", True, pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
+            window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200))
         pygame.display.flip()
 
         clock.tick(60)
