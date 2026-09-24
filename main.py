@@ -159,7 +159,7 @@ class Enemy(Entity):
         self.stun_timer = 0
         self.is_hitting = False
         self.hit_timer = 0
-        
+
         self.grounded = False
         self.head_clipping = False
         self.wall_to_left = False
@@ -211,7 +211,7 @@ class Enemy(Entity):
         if player_x is not None and self.hit_timer < 0 and abs(self.position.x - player_x) < self.player_detection_dist: # TODO: make the dist checl the same left and right
             self.speed.x += self.run_speed * dir
 
-        
+
         box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
         db = []
         if self.hit_timer >= 0:
@@ -230,7 +230,7 @@ class Enemy(Entity):
                         knockback_speed=-5 if self.facing_left else 5
                     )
                 )
-        
+
         if self.knockback_speed > 0:
             self.knockback_speed -= self.knockback_drop
             self.knockback_speed = max(self.knockback_speed, 0)
@@ -288,7 +288,7 @@ class Player(Entity): # TODO: add movement
         self.knockback_drop_s_block = 0.5
 
         self.parry_window_base = 8
-        
+
         self.sword_box_width = 100
         self.sword_box_height = 20
 
@@ -476,10 +476,12 @@ class Player(Entity): # TODO: add movement
             if self.blocking:  self.knockback_speed -= self.knockback_drop_s_block
             elif self.stanced: self.knockback_speed -= self.knockback_drop_s
             else:              self.knockback_speed -= self.knockback_drop_us
+            self.knockback_speed = max(self.knockback_speed, 0)
         elif self.knockback_speed < 0:
             if self.blocking:  self.knockback_speed += self.knockback_drop_s_block
             elif self.stanced: self.knockback_speed += self.knockback_drop_s
             else:              self.knockback_speed += self.knockback_drop_us
+            self.knockback_speed = min(self.knockback_speed, 0)
         self.position += self.speed
         self.buttons_last_frame = copy.copy(buttons)
 
@@ -656,7 +658,7 @@ class World:
 
         self.damage_boxes = [db for db in self.damage_boxes if db.alive_time > 0]
         for damage_box in self.damage_boxes: damage_box.tick()
-        
+
         for enemy in self.enemies: self.damage_boxes += enemy.handle(self.player.position.x)
         self.damage_boxes += self.player.handle(buttons)
 
