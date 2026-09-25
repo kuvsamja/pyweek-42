@@ -416,7 +416,7 @@ class Player(Entity): # TODO: add movement
         if buttons[pygame.K_RIGHT]: dir = 1
         if buttons[pygame.K_LEFT] and buttons[pygame.K_RIGHT]: dir = 0
 
-        if dir != 0:https://www.youtube.com/watch?v=qVdbdozPW9w
+        if dir != 0:
             self.speed.x += self.walk_speed*dir
             self.facing_left = dir==-1
             self.setAnimationState(Entity.AnimationState.S_WALK)
@@ -707,7 +707,7 @@ class World:
         self.damage_boxes = [db for db in self.damage_boxes if db.alive_time > 0]
         for damage_box in self.damage_boxes: damage_box.tick()
         self.player.sword_particle.tick()
-        
+
         for enemy in self.enemies: self.damage_boxes += enemy.handle(self.player.position.x)
         self.damage_boxes += self.player.handle(buttons)
 
@@ -874,7 +874,7 @@ def main():
     camera = Camera(-100, -100, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, window)
 
     # fonts and messages
-    font = pygame.font.SysFont("Arial", 24, bold=True)
+    font = pygame.font.Font(os.path.join("assets", "unifont-subset.ttf"), 24)
 
     total_char_index = 0
     word_char_index = 0
