@@ -416,7 +416,7 @@ class Player(Entity): # TODO: add movement
         if buttons[pygame.K_RIGHT]: dir = 1
         if buttons[pygame.K_LEFT] and buttons[pygame.K_RIGHT]: dir = 0
 
-        if dir != 0:
+        if dir != 0:https://www.youtube.com/watch?v=qVdbdozPW9w
             self.speed.x += self.walk_speed*dir
             self.facing_left = dir==-1
             self.setAnimationState(Entity.AnimationState.S_WALK)
@@ -706,7 +706,8 @@ class World:
         self.enemies = [e for e in self.enemies if not e.dead]
         self.damage_boxes = [db for db in self.damage_boxes if db.alive_time > 0]
         for damage_box in self.damage_boxes: damage_box.tick()
-
+        self.player.sword_particle.tick()
+        
         for enemy in self.enemies: self.damage_boxes += enemy.handle(self.player.position.x)
         self.damage_boxes += self.player.handle(buttons)
 
