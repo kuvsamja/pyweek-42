@@ -161,8 +161,69 @@ class Particle(Entity):
     def tick(self):
         self.lifetime -= 1
 
-class KitsuneBoss:
-    pass
+
+class Kitsune(Entity):
+    def __init__(self, x, y, z_index, name: str):
+        """name: type of the enemy"""
+        super().__init__(x, y, z_index, name, 48, 48, pygame.Rect(16,16,16,32))
+        self.animation_state = self.AnimationState.US_IDLE
+        self.dead = False
+
+        # state stuff
+        self.hp = 100
+        self.knockback_speed = 0
+        self.knockback_drop = 0.2
+
+        self.invincibility_timer = 0
+        self.stun_timer = 0
+        self.is_hitting = False
+        self.hit_timer = 0
+
+        self.grounded = False
+        self.head_clipping = False
+        self.wall_to_left = False
+        self.wall_to_right = False
+        self.looking_right = True
+
+        # const parameters
+        self.run_speed = 1
+        self.gravity_acceleration = 0.8
+        self.terminal_velocity = 10
+        self.invincibility_duration = 10 # change for the boss
+        self.hit_time = 40
+        self.player_detection_dist = 200
+        self.player_hit_dist = 100
+        self.sword_box_width = 100
+        self.sword_box_height = 20
+        
+        self.sword_particle = Particle(
+            -1, # TODO: make this be as long as the swing animation
+            0,
+            0,
+            self._layer,
+            self.sword_box_width,
+            self.sword_box_height,
+            "player_sword_swing"
+        )
+
+    def damage(self, damage_box: DamageBox): # TODO: finish this
+        if self.invincibility_timer > 0: return
+
+        self.knockback_speed = damage_box.knockback_speed
+        self.hp -= damage_box.damage
+        self.stun_timer = damage_box.stun_time
+        self.invincibility_timer = self.invincibility_duration
+
+    def resetSwordParticle(self, x, y, lifetime):
+        self.sword_particle.position.x = x
+        self.sword_particle.position.y = y
+        self.sword_particle.lifetime = lifetime
+
+    def handle(self, player_x: float) -> list[DamageBox]:
+        """updates the enemy"""
+        pass
+
+
 
 
 class Enemy(Entity):
@@ -551,7 +612,6 @@ class World:
     enemies: list[Enemy]
     platforms: list[Platform]
     damage_boxes: list[DamageBox]
-    particles: list[Particle]
     all_sprites: pygame.sprite.LayeredUpdates
 
     def __init__(self, player: Player):
@@ -630,12 +690,16 @@ class World:
         self.player.wall_to_right = False
         self.player.wall_to_left = False
 
+        ex = self.player.position.x + self.player.hitbox.x
+        ey = self.player.position.y + self.player.hitbox.y
+        
         touch_check = pygame.Rect(1, 1, 1, 1) # TODO: fix player floating by one pixel
 
-        feet_box = pygame.Rect(self.player.position.x + self.player.hitbox.x, self.player.position.y + self.player.hitbox.y + self.player.hitbox.h, self.player.hitbox.x, touch_check.h)
-        head_box = pygame.Rect(self.player.position.x, self.player.position.y - touch_check.h, self.player.size.x, touch_check.h)
+        feet_box = pygame.Rect(ex, self.player.position.y + self.player.hitbox.y + self.player.hitbox.h, self.player.hitbox.w, touch_check.h)
+        head_box = pygame.Rect(ex, ey - touch_check.h, self.player.hitbox.w, touch_check.h)
         left_box = pygame.Rect(self.player.position.x - touch_check.w, self.player.position.y + self.player.size.y / 4, touch_check.w, self.player.size.y / 2)
         right_box = pygame.Rect(self.player.position.x + self.player.size.x, self.player.position.y + self.player.size.y / 4, touch_check.w, self.player.size.y / 2)
+
         # TODO: check if this math is alr
         if self.rectWorldCollision(feet_box):
             self.player.grounded = True
@@ -654,11 +718,17 @@ class World:
             enemy.wall_to_left = False
 
             touch_check = pygame.Rect(1, 1, 1, 1) # TODO: fix player floating by one pixel
+        
+            ex = enemy.position.x + enemy.hitbox.x
+            ey = enemy.position.y + enemy.hitbox.y
 
-            feet_box = pygame.Rect(enemy.position.x + enemy.hitbox.x, enemy.position.y + enemy.hitbox.y + enemy.hitbox.h, enemy.hitbox.w, touch_check.h)
-            head_box = pygame.Rect(enemy.position.x, enemy.position.y - touch_check.h, enemy.size.x, touch_check.h)
+
+            feet_box = pygame.Rect(ex, enemy.position.y + enemy.hitbox.y + enemy.hitbox.h, enemy.hitbox.w, touch_check.h)
+            head_box = pygame.Rect(ex, ey - touch_check.h, enemy.hitbox.w, touch_check.h)
             left_box = pygame.Rect(enemy.position.x - touch_check.w, enemy.position.y + enemy.size.y / 4, touch_check.w, enemy.size.y / 2)
             right_box = pygame.Rect(enemy.position.x + enemy.size.x, enemy.position.y + enemy.size.y / 4, touch_check.w, enemy.size.y / 2)
+
+
 
             if self.rectWorldCollision(feet_box):
                 enemy.grounded = True
@@ -684,12 +754,12 @@ class World:
                     (platform.position.y + platform.size.y) - ey
                 )
                 if overlap_x < overlap_y:
-                    if ex < platform.position.x:
+                    if (ex + enemy.hitbox.w / 2) < (platform.position.x + platform.size.x / 2):
                         enemy.position.x -= overlap_x
                     else:
                         enemy.position.x += overlap_x
                 else:
-                    if ey < platform.position.y:
+                    if (ey + enemy.hitbox.h / 2) < (platform.position.y + platform.size.y / 2):
                         enemy.position.y -= overlap_y
                     else:
                         enemy.position.y += overlap_y
