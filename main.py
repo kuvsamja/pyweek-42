@@ -83,15 +83,12 @@ class Entity(pygame.sprite.Sprite):
         return image
     def __init__(self, x:int, y:int, z_index:int, name: str, sprite_width: int, sprite_height: int, hitbox: pygame.Rect):
         super().__init__()
-        # image loading
-        width = sprite_width
-        height = sprite_height
         # other stuff
         self.facing_left = False
         self.hitbox = hitbox
         self.position = pygame.Vector2(x, y)
-        self.size = pygame.Vector2(width, height)
-        self.rect = pygame.Rect(0, 0, width, height)
+        self.size = pygame.Vector2(sprite_width, sprite_height)
+        self.rect = pygame.Rect(0, 0, sprite_width, sprite_height)
         self._layer = z_index
         self.buttons_last_frame = []
         self.sprite_name = name
@@ -144,6 +141,26 @@ class Entity(pygame.sprite.Sprite):
                 self.image = self.animation_frames[new_animation_state.value][0]
             else:
                 self.image = self.animation_frames_flipped[new_animation_state.value][0]
+
+class Particle(Entity):
+    def __init__(self, lifetime, x, y, z_index, width, height, name: str):
+        super().__init__(x, y, z_index, name, width, height, pygame.Rect(16,16,16,32))
+        self.lifetime = lifetime
+        self.image_src = self.image
+        
+
+    def update(self):
+        print(self.lifetime)
+        super().update()
+        if self.lifetime >= 0:
+            self.image = self.animation_frames[self.AnimationState.US_IDLE.value][0]
+        else:
+            self.image = pygame.Surface((0, 0), pygame.SRCALPHA)
+        
+        
+    def tick(self):
+        self.lifetime -= 1
+
 class Enemy(Entity):
     def __init__(self, x, y, z_index, name: str):
         """name: type of the enemy"""
@@ -251,7 +268,7 @@ class Player(Entity): # TODO: add movement
         super().__init__(x, y, z_index, "player", 48, 48, pygame.Rect(16,16,16,32)) # player sprite size is 48x48
         self.animation_state = self.AnimationState.US_IDLE
         self.dead = False
-
+        
         # state stuff
         self.hp = 100
         self.knockback_speed = 0
@@ -280,19 +297,29 @@ class Player(Entity): # TODO: add movement
         # const parameters
         ## unstanced
         self.run_speed = 10
-        self.knockback_drop_us = 0.1 # how much knockback speed to decrease by frame
+        self.knockback_drop_us = 0.2 # how much knockback speed to decrease by frame
 
         ## stanced
         self.stance_transition_duration = 30
         self.walk_speed = 3
-        self.knockback_drop_s = 0.2
-        self.knockback_drop_s_block = 0.5
+        self.knockback_drop_s = 0.4
+        self.knockback_drop_s_block = 1
 
         self.parry_window_base = 8
 
         self.sword_box_width = 100
         self.sword_box_height = 20
 
+        self.sword_particle = Particle(
+            -1, # TODO: make this be as long as the swing animation
+            0,
+            0,
+            self._layer,
+            self.sword_box_width,
+            self.sword_box_height,
+            "player_sword_swing"
+        )
+        
         ## other
         self.gravity_acceleration = 0.8
         self.terminal_velocity = 10
@@ -310,6 +337,11 @@ class Player(Entity): # TODO: add movement
         self.stanced_jump_speed = 7
         self.stanced_jump_time = 5 # max time to hold a jump in frames
 
+    def resetSwordParticle(self, x, y, lifetime):
+        self.sword_particle.position.x = x
+        self.sword_particle.position.y = y
+        self.sword_particle.lifetime = lifetime
+        
     def parryCallback(self, damage_box):
         print("parry")
         self.invincibility_timer = self.invincibility_duration
@@ -409,18 +441,22 @@ class Player(Entity): # TODO: add movement
             if self.speed.y > 0: self.setAnimationState(self.AnimationState.S_FALL)
             else: self.setAnimationState(self.AnimationState.S_RISE)
 
-
-
+        
+        
         db_list = []
         if buttons[pygame.K_x] and not self.buttons_last_frame[pygame.K_x] and self.sword_timer < 0: # TODO: add hit polling
+
+            box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
+            self.resetSwordParticle(box_x, self.position.y + self.size.y / 2 - self.sword_box_height / 2, 10)
             if self.sword_timer > -20:
+                
                 self.swing_count += 1
                 self.swing_count %= 3
+            
             else:
                 self.swing_count = 0
 
             self.sword_timer = self.sword_delay
-            box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
 
             db_list.append(
                 DamageBox(
@@ -465,9 +501,9 @@ class Player(Entity): # TODO: add movement
             self.stance_transition_timer = self.stance_transition_duration
             self.stanced = not self.stanced
 
+        db_list = []
 
         if self.stance_transition_timer >= 0:
-            db_list = []
             self.setAnimationState(self.AnimationState.STANCING)
 
         elif self.stanced: db_list = self.handleStanced(buttons)
@@ -495,6 +531,7 @@ class World:
     enemies: list[Enemy]
     platforms: list[Platform]
     damage_boxes: list[DamageBox]
+    particles: list[Particle]
     all_sprites: pygame.sprite.LayeredUpdates
 
     def __init__(self, player: Player):
@@ -505,13 +542,13 @@ class World:
         self.frame_timer = 0
         self.all_sprites = pygame.sprite.LayeredUpdates()
         self.all_sprites.add(player)
+        self.all_sprites.add(player.sword_particle)
     def addPlatform(self, platform: Platform):
         self.platforms.append(platform)
         self.all_sprites.add(platform)
     def addEnemy(self, enemy: Enemy):
         self.enemies.append(enemy)
         self.all_sprites.add(enemy)
-
 
     @staticmethod
     def entityPlatformCollision(platform: Platform, entity: Entity) -> bool:
@@ -665,16 +702,15 @@ class World:
         self.damageCollisions()
 
 
-
     def advancePhysics(self, buttons): # TODO: make this perform collision checks for enemies
         self.enemies = [e for e in self.enemies if not e.dead]
-
         self.damage_boxes = [db for db in self.damage_boxes if db.alive_time > 0]
         for damage_box in self.damage_boxes: damage_box.tick()
 
         for enemy in self.enemies: self.damage_boxes += enemy.handle(self.player.position.x)
         self.damage_boxes += self.player.handle(buttons)
 
+        
         self.handleCollisions()
 
 class Margins:
@@ -712,7 +748,7 @@ class Camera:
 
                 scaled_w = int(sprite.size.x * scale_x)
                 scaled_h = int(sprite.size.y * scale_y)
-                if isinstance(sprite, Entity):
+                if isinstance(sprite, Entity) or isinstance(sprite, Particle):
                     for i, animation in enumerate(sprite.animation_frames):
                         for j, frame in enumerate(animation):
                             animation[j] = pygame.transform.scale(frame, (scaled_w, scaled_h))
@@ -736,7 +772,7 @@ class Camera:
             if self.resize:
                 scaled_w = int(sprite.size.x * scale_x)
                 scaled_h = int(sprite.size.y * scale_y)
-                if isinstance(sprite, Entity):
+                if isinstance(sprite, Entity) or isinstance(sprite, Particle):
                     for i, animation in enumerate(sprite.animation_frames):
                         for j, frame in enumerate(animation):
                             animation[j] = pygame.transform.scale(frame, (scaled_w, scaled_h))
