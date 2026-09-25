@@ -161,6 +161,10 @@ class Particle(Entity):
     def tick(self):
         self.lifetime -= 1
 
+class KitsuneBoss:
+    pass
+
+
 class Enemy(Entity):
     def __init__(self, x, y, z_index, name: str):
         """name: type of the enemy"""
@@ -194,6 +198,16 @@ class Enemy(Entity):
         self.player_hit_dist = 100
         self.sword_box_width = 100
         self.sword_box_height = 20
+        
+        self.sword_particle = Particle(
+            -1, # TODO: make this be as long as the swing animation
+            0,
+            0,
+            self._layer,
+            self.sword_box_width,
+            self.sword_box_height,
+            "player_sword_swing"
+        )
 
     def damage(self, damage_box: DamageBox): # TODO: finish this
         if self.invincibility_timer > 0: return
@@ -202,6 +216,11 @@ class Enemy(Entity):
         self.hp -= damage_box.damage
         self.stun_timer = damage_box.stun_time
         self.invincibility_timer = self.invincibility_duration
+
+    def resetSwordParticle(self, x, y, lifetime):
+        self.sword_particle.position.x = x
+        self.sword_particle.position.y = y
+        self.sword_particle.lifetime = lifetime
 
     def handle(self, player_x: float) -> list[DamageBox]:
         """updates the enemy"""
@@ -219,6 +238,7 @@ class Enemy(Entity):
 
         if self.head_clipping:
             self.speed.y = max(0, self.speed.y)
+        box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
 
         dir = 0
         if self.hit_timer < 0:
@@ -230,11 +250,11 @@ class Enemy(Entity):
             self.speed.x += self.run_speed * dir
 
 
-        box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
         db = []
         if self.hit_timer >= 0:
             self.setAnimationState(self.AnimationState.S_HIT1)
             if self.hit_timer == int(self.hit_time / 2):
+                self.resetSwordParticle(box_x, self.position.y + self.size.y / 2 - self.sword_box_height / 2, 10)
                 db.append(
                     DamageBox(
                         x=box_x,
@@ -549,6 +569,7 @@ class World:
     def addEnemy(self, enemy: Enemy):
         self.enemies.append(enemy)
         self.all_sprites.add(enemy)
+        self.all_sprites.add(enemy.sword_particle)
 
     @staticmethod
     def entityPlatformCollision(platform: Platform, entity: Entity) -> bool:
@@ -707,6 +728,7 @@ class World:
         self.damage_boxes = [db for db in self.damage_boxes if db.alive_time > 0]
         for damage_box in self.damage_boxes: damage_box.tick()
         self.player.sword_particle.tick()
+        for enemy in self.enemies: enemy.sword_particle.tick()
 
         for enemy in self.enemies: self.damage_boxes += enemy.handle(self.player.position.x)
         self.damage_boxes += self.player.handle(buttons)
