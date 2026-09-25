@@ -936,7 +936,13 @@ class Camera:
         if player.position.y - self.y < self.softzone.up:
             self.y -= self.camera_follow_speed
 
+def pixel_text(text: str, font: pygame.Font, scale=1.0, color=(255, 255, 255)):
+    surface = font.render(text, False, color)
 
+    if scale != 1:
+        surface = pygame.transform.scale_by(surface, scale)
+
+    return surface
 def main():
     WINDOW_WIDTH = 1920
     WINDOW_HEIGHT = 1080
@@ -966,11 +972,12 @@ def main():
     camera = Camera(-100, -100, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, window)
 
     # fonts and messages
-    font = pygame.font.Font(os.path.join("assets", "unifont-subset.ttf"), 24)
+    fontPath = os.path.join("assets", "Geist-Static.ttf")
+    base_font = pygame.font.Font(fontPath, 40)
 
     total_char_index = 0
     word_char_index = 0
-    MESSAGE1 = ["A long time ago,", "in a galaxy, far, far away"]
+    MESSAGE1 = ["170 AK", "(After Kōfuku)", " ", "Japan has forgotten the pandas.", "Nearly all were eradicated.", " ", "One remains.", " ", "His name is Iskra Blasko.", "And he's coming for the fox", "who brought his kind to extinction."]
     MESSAGE1LEN = sum(len(item) for item in MESSAGE1)
     last_text = []
     current_text = None
@@ -981,6 +988,16 @@ def main():
     fadeaway_time = 3
     black_time = 0.5 # seconds to be black after text completely dissapears
     text_stay_time = 1.5 # seconds for text to stay before fading away
+    just_title_time = 1 # how many seconds after entering main menu to be just title displayed
+
+    # main menu
+    current_option = 0
+    total_options = 3
+    last_time_arrow_key_pressed = 0
+    delay_between_two_presses = 0.3 # delay between two arrow key presses
+    main_menu_at = 0
+    main_menu = True
+
     clock = pygame.Clock()
     running = True
     while running:
@@ -1003,8 +1020,6 @@ def main():
                     if current_word + 1 < len(MESSAGE1):
                         last_text.append(current_text)
                         current_text = ""
-                    print(last_text)
-                    print("cur word: " + str(current_text))
 
                     current_word += 1
                     word_char_index = 0
@@ -1013,32 +1028,64 @@ def main():
                 total_char_index += 1
         elif total_char_index==MESSAGE1LEN and time_finished==0:
             time_finished = perf_counter() + text_stay_time
-        elif perf_counter() - time_finished > fadeaway_time + black_time:
+        elif perf_counter() - time_finished > fadeaway_time + black_time + 2 and not main_menu:
             world.advancePhysics(buttons)
             camera.moveCamera()
             camera.drawDebug()
+        elif perf_counter() - time_finished > fadeaway_time + black_time and main_menu:
+            if main_menu_at == 0:
+                main_menu_at = perf_counter()
+            # main menu
 
+            title_text = pixel_text("REMAINDER", base_font, 2)
+            window.blit(title_text, (WINDOW_WIDTH // 2 - title_text.get_width() // 2, 170))
+            subtitle_text = pixel_text("A PyWeek 42 Entry", base_font)
+            window.blit(subtitle_text, (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, 170 + title_text.get_height()))
+            if perf_counter() - main_menu_at > just_title_time:
+                if buttons[pygame.K_DOWN] and perf_counter() - last_time_arrow_key_pressed > delay_between_two_presses:
+                    current_option = (current_option + 1) % total_options
+                    last_time_arrow_key_pressed = perf_counter()
+                if buttons[pygame.K_UP] and perf_counter() - last_time_arrow_key_pressed > delay_between_two_presses:
+                    current_option = (current_option - 1) % total_options
+                    last_time_arrow_key_pressed = perf_counter()
+                if buttons[pygame.K_RETURN]:
+                    match current_option:
+                        case 0:
+                            main_menu = False
+                start_text = pixel_text("Embark", base_font)
+                window.blit(start_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2, 400))
+                help_text = pixel_text("Controls", base_font)
+                window.blit(help_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2, 500))
+                exit_text = pixel_text("Depart", base_font)
+                window.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 600))
+
+                pygame.draw.circle(window, (255,255,255), (850, 400 + start_text.get_height()//2 + current_option*100), 10)
         if buttons[pygame.K_z]:
             time_finished = perf_counter() - (fadeaway_time + black_time + 1)
             total_char_index = 9999999999
         fps = int(clock.get_fps())
-        fps_text = font.render(f"FPS: {fps}", True, pygame.Color(255,0,0))
+        fps_text = pixel_text(f"FPS: {fps}", base_font, color=pygame.Color(255,0,0))
         window.blit(fps_text, (10, 10))
         if time_finished==0 or perf_counter() - time_finished < 0:
             for i, t in enumerate(last_text):
-                message_text = font.render(f"{t}", True, pygame.Color(255,255,255))
+                message_text = pixel_text(f"{t}", base_font, 0.75)
                 window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*i))
-            message_text = font.render(f"{current_text}", True, pygame.Color(255,255,255))
-
+            message_text = pixel_text(f"{current_text}", base_font, 0.75)
             window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*len(last_text)))
+
+            exit_text = pixel_text("Press [Z] to skip", base_font, 0.75)
+            window.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 3*WINDOW_HEIGHT//4))
         elif perf_counter() - time_finished > 0 and perf_counter() - time_finished < fadeaway_time:
             dt = perf_counter() - time_finished
             dtClamped = (1 - dt/fadeaway_time)
             for i, t in enumerate(last_text):
-                message_text = font.render(f"{t}", True, pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
+                message_text = pixel_text(f"{t}", base_font, 0.75, color=pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
                 window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*i))
-            message_text = font.render(f"{current_text}", True, pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
+            message_text = pixel_text(f"{current_text}", base_font, 0.75, color=pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
             window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*len(last_text)))
+
+            exit_text = pixel_text("Press [Z] to skip", base_font, 0.75)
+            window.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 3*WINDOW_HEIGHT//4))
 
         pygame.display.flip()
 
