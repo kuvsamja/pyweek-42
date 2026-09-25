@@ -1,5 +1,6 @@
 import copy
 import os
+import sys
 from enum import Enum, auto
 from time import perf_counter
 
@@ -195,7 +196,7 @@ class Kitsune(Entity):
         self.player_hit_dist = 100
         self.sword_box_width = 100
         self.sword_box_height = 20
-        
+
         self.sword_particle = Particle(
             -1, # TODO: make this be as long as the swing animation
             0,
@@ -259,7 +260,7 @@ class Enemy(Entity):
         self.player_hit_dist = 100
         self.sword_box_width = 100
         self.sword_box_height = 20
-        
+
         self.sword_particle = Particle(
             -1, # TODO: make this be as long as the swing animation
             0,
@@ -692,7 +693,7 @@ class World:
 
         ex = self.player.position.x + self.player.hitbox.x
         ey = self.player.position.y + self.player.hitbox.y
-        
+
         touch_check = pygame.Rect(1, 1, 1, 1) # TODO: fix player floating by one pixel
 
         feet_box = pygame.Rect(ex, self.player.position.y + self.player.hitbox.y + self.player.hitbox.h, self.player.hitbox.w, touch_check.h)
@@ -718,7 +719,7 @@ class World:
             enemy.wall_to_left = False
 
             touch_check = pygame.Rect(1, 1, 1, 1) # TODO: fix player floating by one pixel
-        
+
             ex = enemy.position.x + enemy.hitbox.x
             ey = enemy.position.y + enemy.hitbox.y
 
@@ -1052,6 +1053,8 @@ def main():
                     match current_option:
                         case 0:
                             main_menu = False
+                        case 2:
+                            running = False
                 start_text = pixel_text("Embark", base_font)
                 window.blit(start_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2, 400))
                 help_text = pixel_text("Controls", base_font)
@@ -1091,5 +1094,6 @@ def main():
 
         clock.tick(60)
     pygame.quit()
+    sys.exit(0)
 if __name__ == "__main__":
     main()
