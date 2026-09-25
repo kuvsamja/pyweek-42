@@ -147,7 +147,7 @@ class Particle(Entity):
         super().__init__(x, y, z_index, name, width, height, pygame.Rect(16,16,16,32))
         self.lifetime = lifetime
         self.image_src = self.image
-        
+
 
     def update(self):
         print(self.lifetime)
@@ -156,8 +156,8 @@ class Particle(Entity):
             self.image = self.animation_frames[self.AnimationState.US_IDLE.value][0]
         else:
             self.image = pygame.Surface((0, 0), pygame.SRCALPHA)
-        
-        
+
+
     def tick(self):
         self.lifetime -= 1
 
@@ -268,7 +268,7 @@ class Player(Entity): # TODO: add movement
         super().__init__(x, y, z_index, "player", 48, 48, pygame.Rect(16,16,16,32)) # player sprite size is 48x48
         self.animation_state = self.AnimationState.US_IDLE
         self.dead = False
-        
+
         # state stuff
         self.hp = 100
         self.knockback_speed = 0
@@ -319,7 +319,7 @@ class Player(Entity): # TODO: add movement
             self.sword_box_height,
             "player_sword_swing"
         )
-        
+
         ## other
         self.gravity_acceleration = 0.8
         self.terminal_velocity = 10
@@ -341,7 +341,7 @@ class Player(Entity): # TODO: add movement
         self.sword_particle.position.x = x
         self.sword_particle.position.y = y
         self.sword_particle.lifetime = lifetime
-        
+
     def parryCallback(self, damage_box):
         print("parry")
         self.invincibility_timer = self.invincibility_duration
@@ -441,18 +441,18 @@ class Player(Entity): # TODO: add movement
             if self.speed.y > 0: self.setAnimationState(self.AnimationState.S_FALL)
             else: self.setAnimationState(self.AnimationState.S_RISE)
 
-        
-        
+
+
         db_list = []
         if buttons[pygame.K_x] and not self.buttons_last_frame[pygame.K_x] and self.sword_timer < 0: # TODO: add hit polling
 
             box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
             self.resetSwordParticle(box_x, self.position.y + self.size.y / 2 - self.sword_box_height / 2, 10)
             if self.sword_timer > -20:
-                
+
                 self.swing_count += 1
                 self.swing_count %= 3
-            
+
             else:
                 self.swing_count = 0
 
@@ -711,7 +711,7 @@ class World:
         for enemy in self.enemies: self.damage_boxes += enemy.handle(self.player.position.x)
         self.damage_boxes += self.player.handle(buttons)
 
-        
+
         self.handleCollisions()
 
 class Margins:
@@ -926,6 +926,9 @@ def main():
             camera.moveCamera()
             camera.drawDebug()
 
+        if buttons[pygame.K_z]:
+            time_finished = perf_counter() - (fadeaway_time + black_time + 1)
+            total_char_index = 9999999999
         fps = int(clock.get_fps())
         fps_text = font.render(f"FPS: {fps}", True, pygame.Color(255,0,0))
         window.blit(fps_text, (10, 10))
