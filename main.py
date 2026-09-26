@@ -1021,6 +1021,8 @@ class Camera:
             self.render_offset[1] = random.randint(-self.shake_intensity, self.shake_intensity)
 
             self.shake_timer -= 1
+            if self.shake_timer == 0:
+                self.render_offset = [0, 0]
         self.screen.blit(self.window, self.render_offset)
     def drawDebug(self):
         scale_x = self.pixel_width / self.world_width
@@ -1086,16 +1088,21 @@ class Camera:
         if player.position.y - self.y < self.softzone.up:
             self.y -= self.camera_follow_speed
 
-def pixel_text(text: str, font: pygame.Font, scale=1.0, color=(255, 255, 255)):
-    surface = font.render(text, False, color)
 
-    if scale != 1:
-        surface = pygame.transform.scale_by(surface, scale)
-
-    return surface
 def main():
-    WINDOW_WIDTH = 1920
-    WINDOW_HEIGHT = 1080
+    def pixel_text(text: str, font: pygame.Font, scale=1.0, color=(255, 255, 255)):
+        tempsurface = font.render(text, False, color)
+        scale *= permscaling * 0.5
+        if scale != 1:
+            tempsurface = pygame.transform.scale_by(tempsurface, scale)
+
+        return tempsurface
+
+    with open(os.path.join("assets", "scaling.txt"), "r") as f:
+        scaling = float(f.read()) # current/unapplied scaling
+        permscaling = scaling # permanent scaling
+    WINDOW_WIDTH = round(640 * permscaling)
+    WINDOW_HEIGHT = round(360 * permscaling)
 
     pygame.init()
     window = pygame.display.set_mode(
@@ -1158,15 +1165,15 @@ def main():
     black_time = 0.5 # seconds to be black after text completely dissapears
     text_stay_time = 1.5 # seconds for text to stay before fading away
     just_title_time = 1 # how many seconds after entering main menu to be just title displayed
-
     # main menu
     current_option = 0
-    total_options = 3
+    total_options = 4
     last_time_arrow_key_pressed = 0
-    delay_between_two_presses = 0.3 # delay between two arrow key presses
+    delay_between_two_presses = 0.2 # delay between two arrow key presses
     main_menu_at = 0
     main_menu = True
-
+    controls_menu = False
+    settings_menu = False
     clock = pygame.Clock()
     running = True
     while running:
@@ -1202,15 +1209,103 @@ def main():
             world.advancePhysics(buttons)
             camera.moveCamera()
             camera.drawDebug()
+        elif controls_menu:
+            if buttons[pygame.K_ESCAPE]:
+                controls_menu = False
+            SPACING = 20
+            prev_text = ""
+            subtitle_text = pixel_text("Guidance", base_font, 1.25)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, WINDOW_HEIGHT // 8)
+            prev_text = subtitle_text
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("Left/Right arrow to move", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            prev_text = subtitle_text
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("L Shift to toggle the attacking stance", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            prev_text = subtitle_text
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("Z to jump", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            prev_text = subtitle_text
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("X to attack (when stanced)", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            prev_text = subtitle_text
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("C to block/parry enemy attack", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("The goal of the game is to reach and kill the", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + 2 * SPACING)
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("fox (Kitsune) who eradicated all pandas from Japan.", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("But beware, everyone's HP is degrading with time.", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("When you hit an enemy you take some of it's time, and", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("same goes vice versa. If you run out of time, you die.", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("Good luck and try to avenge your kind!", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("Press [ESC] to exit to main menu", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, WINDOW_HEIGHT - subtitle_text.get_height() - SPACING)
+            display_canvas.blit(subtitle_text, temp_pos)
+        elif settings_menu:
+            if buttons[pygame.K_ESCAPE]:
+                settings_menu = False
+            if buttons[pygame.K_RIGHT] and scaling < 3 and perf_counter() - last_time_arrow_key_pressed > delay_between_two_presses:
+                scaling += 0.5
+                last_time_arrow_key_pressed = perf_counter()
+            if buttons[pygame.K_LEFT] and scaling > 1 and perf_counter() - last_time_arrow_key_pressed > delay_between_two_presses:
+                scaling -= 0.5
+                last_time_arrow_key_pressed = perf_counter()
+            if buttons[pygame.K_z] and permscaling!=scaling:
+                permscaling = scaling
+                WINDOW_WIDTH = 640 * scaling
+                WINDOW_HEIGHT = 360 * scaling
+                with open(os.path.join("assets", "scaling.txt"), "w") as f:
+                    f.write(str(permscaling))
+                window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+                display_canvas = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+                camera = Camera(-100, -100, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, display_canvas, window)
+            SPACING = 20
+            prev_text = ""
+            subtitle_text = pixel_text("Options", base_font, 1.25)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, WINDOW_HEIGHT // 8)
+            prev_text = subtitle_text
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("Press [Z] to apply scaling options", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            prev_text = subtitle_text
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("Scaling", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            prev_text = subtitle_text
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text(f"‹ {scaling}X ›", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
+            prev_text = subtitle_text
+            display_canvas.blit(subtitle_text, temp_pos)
+            subtitle_text = pixel_text("Press [ESC] to exit to main menu", base_font, 0.75)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, WINDOW_HEIGHT - subtitle_text.get_height() - SPACING)
+            display_canvas.blit(subtitle_text, temp_pos)
         elif perf_counter() - time_finished > fadeaway_time + black_time and main_menu:
             if main_menu_at == 0:
                 main_menu_at = perf_counter()
             # main menu
 
-            title_text = pixel_text("REMAINDER", base_font, 2)
-            display_canvas.blit(title_text, (WINDOW_WIDTH // 2 - title_text.get_width() // 2, 170))
+            title_text = pixel_text("REMAINDER.", base_font, 2)
+            display_canvas.blit(title_text, (WINDOW_WIDTH // 2 - title_text.get_width() // 2, WINDOW_HEIGHT//8))
             subtitle_text = pixel_text("A PyWeek 42 Entry", base_font)
-            display_canvas.blit(subtitle_text, (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, 170 + title_text.get_height()))
+            display_canvas.blit(subtitle_text, (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, WINDOW_HEIGHT//8 + title_text.get_height()))
             if perf_counter() - main_menu_at > just_title_time:
                 if buttons[pygame.K_DOWN] and perf_counter() - last_time_arrow_key_pressed > delay_between_two_presses:
                     current_option = (current_option + 1) % total_options
@@ -1222,18 +1317,26 @@ def main():
                     match current_option:
                         case 0:
                             main_menu = False
+                        case 1:
+                            controls_menu = True
                         case 2:
+                            settings_menu = True
+                        case 3:
                             running = False
                 start_text = pixel_text("Embark", base_font)
-                display_canvas.blit(start_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2, 400))
-                help_text = pixel_text("Controls", base_font)
-                display_canvas.blit(help_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2, 500))
+                temp_pos = (WINDOW_WIDTH // 2 - start_text.get_width() // 2, WINDOW_HEIGHT//8 + title_text.get_height() + subtitle_text.get_height() + WINDOW_HEIGHT//24)
+                display_canvas.blit(start_text, temp_pos)
+                # they are all centering based on start_text, which may not be so bad, but note for the future
+                help_text = pixel_text("Guidance", base_font)
+                display_canvas.blit(help_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2, temp_pos[1] + start_text.get_height()))
+                settings_text = pixel_text("Options", base_font)
+                display_canvas.blit(settings_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2,  temp_pos[1] + start_text.get_height() + help_text.get_height()))
                 exit_text = pixel_text("Depart", base_font)
-                display_canvas.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 600))
+                display_canvas.blit(exit_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2,  temp_pos[1] + start_text.get_height() + help_text.get_height() + settings_text.get_height()))
 
                 minx = min(WINDOW_WIDTH // 2 - start_text.get_width() // 2, WINDOW_WIDTH // 2 - start_text.get_width() // 2, WINDOW_WIDTH // 2 - exit_text.get_width() // 2)
-                pygame.draw.circle(display_canvas, (255,255,255), (minx - 50, 400 + start_text.get_height()//2 + current_option*100), 10)
-        if buttons[pygame.K_z] and main_menu_at == 0:
+                pygame.draw.circle(display_canvas, (255,255,255), (minx - WINDOW_WIDTH//64, WINDOW_HEIGHT//8 + title_text.get_height() + subtitle_text.get_height() + WINDOW_HEIGHT//24 + start_text.get_height() // 2 + current_option * start_text.get_height()), round(WINDOW_HEIGHT * 10 / 720))
+        if buttons[pygame.K_z] and main_menu_at == 0: #0.0139
             time_finished = perf_counter() - (fadeaway_time + black_time + 1)
             total_char_index = 9999999999
         fps = int(clock.get_fps())
@@ -1242,23 +1345,24 @@ def main():
         if time_finished==0 or perf_counter() - time_finished < 0:
             for i, t in enumerate(last_text):
                 message_text = pixel_text(f"{t}", base_font, 0.75)
-                display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*i))
+                display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, WINDOW_HEIGHT//16 + i * WINDOW_HEIGHT * 1/24))
             message_text = pixel_text(f"{current_text}", base_font, 0.75)
-            display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*len(last_text)))
+            display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, WINDOW_HEIGHT//16 + len(last_text) * WINDOW_HEIGHT * 1/24))
+
 
             exit_text = pixel_text("Press [Z] to skip", base_font, 0.75)
-            display_canvas.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 3*WINDOW_HEIGHT//4))
+            display_canvas.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, WINDOW_HEIGHT - exit_text.get_height() - WINDOW_HEIGHT//24))
         elif perf_counter() - time_finished > 0 and perf_counter() - time_finished < fadeaway_time:
             dt = perf_counter() - time_finished
             dtClamped = (1 - dt/fadeaway_time)
             for i, t in enumerate(last_text):
                 message_text = pixel_text(f"{t}", base_font, 0.75, color=pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
-                display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*i))
+                display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, WINDOW_HEIGHT//16 + i * WINDOW_HEIGHT * 1/24))
             message_text = pixel_text(f"{current_text}", base_font, 0.75, color=pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
-            display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*len(last_text)))
+            display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, WINDOW_HEIGHT//16 + len(last_text) * WINDOW_HEIGHT * 1/24))
 
             exit_text = pixel_text("Press [Z] to skip", base_font, 0.75)
-            display_canvas.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 3*WINDOW_HEIGHT//4))
+            display_canvas.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, WINDOW_HEIGHT - exit_text.get_height() - WINDOW_HEIGHT//24))
         if buttons[pygame.K_SPACE]:
             camera.screenShake(5, 60)
         if main_menu:
