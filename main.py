@@ -170,6 +170,7 @@ class Kitsune(Entity):
         super().__init__(x, y, z_index, name, 48, 48, pygame.Rect(16,16,16,32))
         self.animation_state = self.AnimationState.US_IDLE
         self.dead = False
+        self.is_active = False
 
         # state stuff
         self.hp = 1000
@@ -356,9 +357,38 @@ class Kitsune(Entity):
                 case 3:
                     if self.projectiles_duration - self.hit_timer in self.projectile_timings:
                         db = self.getDB(self.hit)
+
+        db_list = []
+        db_list.append(
+            DamageBox(
+                x=self.position.x + self.hitbox.x,
+                y=self.position.y + self.hitbox.y,
+                w=self.hitbox.w/2,
+                h=self.hitbox.h,
+                damage=10,
+                owner=DamageBox.Owner.SMALL_ENEMY,
+                alive_time=1,
+                stun_time=0,
+                knockback_speed=-5
+            )
+        )
+        
+        db_list.append(
+            DamageBox(
+                x=self.position.x + self.hitbox.x + self.hitbox.w/2,
+                y=self.position.y + self.hitbox.y,
+                w=self.hitbox.w/2,
+                h=self.hitbox.h,
+                damage=10,
+                owner=DamageBox.Owner.SMALL_ENEMY,
+                alive_time=1,
+                stun_time=0,
+                knockback_speed=5
+            )
+        )
         if db is not None:
-            return [db]
-        return []
+            db_list.append(db)
+        return db_list
 
 class Enemy(Entity):
     def __init__(self, x, y, z_index, name: str):
@@ -518,7 +548,7 @@ class Player(Entity): # TODO: add movement
         self.stance_transition_duration = 30
         self.walk_speed = 3
         self.knockback_drop_s = 0.4
-        self.knockback_drop_s_block = 1
+        self.knockback_drop_s_block = 0.5
 
         self.parry_window_base = 8
 
