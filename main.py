@@ -307,12 +307,12 @@ class Kitsune(Entity):
         distance = 20
         dir = random.randint(0, 1)
         self.facing_left = bool(dir)
-        
+
         if dir == 0:
             self.position.x = player_x - self.hitbox.width - distance
         else:
             self.position.x = player_x + 48 + distance
-            
+
     def handle(self, player_x: float) -> list[DamageBox]:
         """updates the enemy"""
 
@@ -328,7 +328,7 @@ class Kitsune(Entity):
             self.time_to_hit = -1
             self.hit = random.randint(0, 3)
             self.teleport(player_x)
-            
+
             match self.hit:
                 case 0:
                     self.hit_timer = self.single_hit_duration
@@ -1097,10 +1097,15 @@ def main():
             tempsurface = pygame.transform.scale_by(tempsurface, scale)
 
         return tempsurface
-
-    with open(os.path.join("assets", "scaling.txt"), "r") as f:
-        scaling = float(f.read()) # current/unapplied scaling
-        permscaling = scaling # permanent scaling
+    if not os.path.isfile(os.path.join("assets", "scaling.txt")):
+        with open(os.path.join("assets", "scaling.txt"), "w") as f:
+            scaling = 2.0
+            permscaling = 2.0
+            f.write(str(permscaling))
+    else:
+        with open(os.path.join("assets", "scaling.txt"), "r") as f:
+            scaling = float(f.read()) # current/unapplied scaling
+            permscaling = scaling # permanent scaling
     WINDOW_WIDTH = round(640 * permscaling)
     WINDOW_HEIGHT = round(360 * permscaling)
 
@@ -1113,15 +1118,15 @@ def main():
 
     display_canvas = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
     player = Player(0, 0, 0)
-    
+
     enemy = Enemy(-10, -100, 0, "dummy")
 
-    
+
     kitsune = Kitsune(1024+30+640/2-96/2, 100 + 4, 0, "kitsune")
     kitsune.arena_left = 1024+30
     kitsune.arena_right = 1024+30+640
-    
-    
+
+
     world = World(player)
 
     world.addKitsune(kitsune)
