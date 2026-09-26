@@ -204,8 +204,8 @@ class Kitsune(Entity):
         self.single_hit_box = pygame.Rect(
             0,
             0,
-            30,
-            30,
+            96,
+            96,
         )
 
         self.pierce_damage = 10
@@ -214,8 +214,8 @@ class Kitsune(Entity):
         self.pierce_box = pygame.Rect(
             0,
             0,
-            30,
-            30,
+            96,
+            96,
         )
 
         self.five_hits_damage = 10
@@ -224,8 +224,8 @@ class Kitsune(Entity):
         self.five_hits_box = pygame.Rect(
             0,
             0,
-            30,
-            30,
+            96,
+            96,
         )
 
         self.projectile_damage = 10
@@ -234,8 +234,8 @@ class Kitsune(Entity):
         self.projectile_box = pygame.Rect(
             0,
             0,
-            30,
-            30,
+            96,
+            96,
         )
 
 
@@ -257,6 +257,7 @@ class Kitsune(Entity):
         self.stun_timer = damage_box.stun_time
         self.invincibility_timer = self.invincibility_duration
 
+        print(self.hp)
     def getDB(self, index) -> DamageBox | None:
         match index:
             case 0:
@@ -302,6 +303,16 @@ class Kitsune(Entity):
         return None
 
 
+    def teleport(self, player_x):
+        distance = 20
+        dir = random.randint(0, 1)
+        self.facing_left = bool(dir)
+        
+        if dir == 0:
+            self.position.x = player_x - self.hitbox.width - distance
+        else:
+            self.position.x = player_x + 48 + distance
+            
     def handle(self, player_x: float) -> list[DamageBox]:
         """updates the enemy"""
 
@@ -310,11 +321,14 @@ class Kitsune(Entity):
             self.setAnimationState(self.AnimationState.S_IDLE)
             self.time_to_hit = (self.time_to_hit-1) % self.wait_between_hits
         self.hit_timer -= 1
+        self.invincibility_timer -= 1
 
         db = None
         if self.time_to_hit == 0:
             self.time_to_hit = -1
             self.hit = random.randint(0, 3)
+            self.teleport(player_x)
+            
             match self.hit:
                 case 0:
                     self.hit_timer = self.single_hit_duration
@@ -443,7 +457,7 @@ class Enemy(Entity):
                         w=self.sword_box_width,
                         h=self.sword_box_height,
                         damage=10,
-                        owner=DamageBox.Owner.PLAYER,
+                        owner=DamageBox.Owner.SMALL_ENEMY,
                         alive_time=5,
                         stun_time=10,
                         knockback_speed=-5 if self.facing_left else 5
@@ -907,6 +921,13 @@ class World:
                         )
                     ):
                         enemy.damage(db)
+                if db.box.colliderect(
+                    self.kitsune.position.x + self.kitsune.hitbox.x,
+                    self.kitsune.position.y + self.kitsune.hitbox.y,
+                    self.kitsune.hitbox.w,
+                    self.kitsune.hitbox.h
+                ):
+                    self.kitsune.damage(db)
             elif db.owner == DamageBox.Owner.SMALL_ENEMY and db.box.colliderect(
                     pygame.Rect(self.player.position.x + self.player.hitbox.x,
                                 self.player.position.y + self.player.hitbox.y,
@@ -931,7 +952,7 @@ class World:
 
         for enemy in self.enemies: self.damage_boxes += enemy.handle(self.player.position.x)
         self.damage_boxes += self.player.handle(buttons)
-        self.damage_boxes += self.kitsune.handle(10)
+        self.damage_boxes += self.kitsune.handle(self.player.position.x)
 
 
         self.handleCollisions()
@@ -1080,23 +1101,36 @@ def main():
 
     display_canvas = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
     player = Player(0, 0, 0)
-
-    plat10 = Platform(-118, 100, 1, "debug-platform-1024x32.png")
-
-    plat2 = Platform(-10, 0, 1, "debug-platform-128x32.png")
-
+    
     enemy = Enemy(-10, -100, 0, "dummy")
 
-    kitsune = Kitsune(200, 0, 0, "kitsune")
-
+    
+    kitsune = Kitsune(1024+30+640/2-96/2, 100 + 4, 0, "kitsune")
+    kitsune.arena_left = 1024+30
+    kitsune.arena_right = 1024+30+640
+    
+    
     world = World(player)
 
     world.addKitsune(kitsune)
 
     world.addEnemy(enemy)
 
-    world.addPlatform(plat10)
-    world.addPlatform(plat2)
+    world.addPlatform(
+        Platform(0, 100, 1, "debug-platform-1024x32.png")
+    )
+    world.addPlatform(
+        Platform(-10, 0, 1, "debug-platform-128x32.png")
+    )
+    world.addPlatform(
+        Platform(1024, 100, 1, "debug-platform-30x100.png")
+    )
+    world.addPlatform(
+        Platform(1024+30+640, 100, 1, "debug-platform-30x100.png")
+    )
+    world.addPlatform(
+        Platform(1024+30, 200, 1, "debug-platform-640x100.png")
+    )
 
     camera = Camera(-100, -100, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, display_canvas, window)
 
