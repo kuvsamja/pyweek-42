@@ -189,7 +189,7 @@ class Kitsune(Entity):
         self.hit_index = 0
         self.hit_timer = 0
         self.is_hitting = False
-        
+
         # const parameters
         self.run_speed = 0
         self.gravity_acceleration = 0
@@ -207,7 +207,7 @@ class Kitsune(Entity):
             30,
             30,
         )
-        
+
         self.pierce_damage = 10
         self.pierce_duration = 100
         self.pierce_timings = [50]
@@ -217,7 +217,7 @@ class Kitsune(Entity):
             30,
             30,
         )
-        
+
         self.five_hits_damage = 10
         self.five_hits_duration = 100
         self.five_hits_timings = [10, 30, 50, 70, 90]
@@ -227,7 +227,7 @@ class Kitsune(Entity):
             30,
             30,
         )
-        
+
         self.projectile_damage = 10
         self.projectiles_duration = 100
         self.projectile_timings = [50]
@@ -238,7 +238,7 @@ class Kitsune(Entity):
             30,
         )
 
-        
+
         self.hitbox.x = 0
         self.hitbox.y = 0
         self.hitbox.w = 96
@@ -247,7 +247,7 @@ class Kitsune(Entity):
         self.arena_left = 0
         self.arena_right = 700
 
-        
+
 
     def damage(self, damage_box: DamageBox): # TODO: finish this
         if self.invincibility_timer > 0: return
@@ -298,14 +298,14 @@ class Kitsune(Entity):
                     stun_time=0,
                     knockback_speed=-5 if self.facing_left else 5
                 )
-        
+
         return None
-        
+
 
     def handle(self, player_x: float) -> list[DamageBox]:
         """updates the enemy"""
 
-        
+
         if self.hit_timer < 0:
             self.setAnimationState(self.AnimationState.S_IDLE)
             self.time_to_hit = (self.time_to_hit-1) % self.wait_between_hits
@@ -347,10 +347,6 @@ class Kitsune(Entity):
         if db is not None:
             return [db]
         return []
-
-
-
-
 
 class Enemy(Entity):
     def __init__(self, x, y, z_index, name: str):
@@ -739,7 +735,7 @@ class World:
     enemies: list[Enemy]
     platforms: list[Platform]
     damage_boxes: list[DamageBox]
-    
+
     all_sprites: pygame.sprite.LayeredUpdates
 
     def __init__(self, player: Player):
@@ -762,7 +758,7 @@ class World:
         self.kitsune = kitsune
         self.all_sprites.add(kitsune)
         # self.all_sprites.add(kitsune.slash)
-        
+
     @staticmethod
     def entityPlatformCollision(platform: Platform, entity: Entity) -> bool:
         ex = entity.position.x + entity.hitbox.x
@@ -947,7 +943,7 @@ class Margins:
         self.right = right
 
 class Camera:
-    def __init__(self, x, y, world_width, world_height, pixel_width, pixel_height, world: World, window: pygame.Surface):
+    def __init__(self, x, y, world_width, world_height, pixel_width, pixel_height, world: World, window: pygame.Surface, screen: pygame.Surface):
         self.world_width = world_width
         self.world_height = world_height  #height in world units
         self.pixel_width = pixel_width
@@ -960,7 +956,14 @@ class Camera:
         self.world = world
         self.window = window
         self.resize = True
-
+        self.screen = screen
+        self.render_offset = [0,0]
+        self.shake_timer = 0
+        self.shake_intensity = 5
+    def screenShake(self, shake_intensity: int, shake_duration: int):
+        """Shake the screen. shake_duration is in frames"""
+        self.shake_timer = shake_duration
+        self.shake_intensity = shake_intensity
     def draw(self):
         scale_x = self.pixel_width / self.world_width
         scale_y = self.pixel_height / self.world_height
@@ -974,7 +977,7 @@ class Camera:
 
                 scaled_w = int(sprite.size.x * scale_x)
                 scaled_h = int(sprite.size.y * scale_y)
-                if isinstance(sprite, Entity) or isinstance(sprite, Particle):
+                if isinstance(sprite, Entity):
                     for i, animation in enumerate(sprite.animation_frames):
                         for j, frame in enumerate(animation):
                             animation[j] = pygame.transform.scale(frame, (scaled_w, scaled_h))
@@ -986,28 +989,16 @@ class Camera:
         self.world.all_sprites.draw(self.window)
         self.resize = False
 
+        if self.shake_timer > 0:
+            self.render_offset[0] = random.randint(-self.shake_intensity, self.shake_intensity)
+            self.render_offset[1] = random.randint(-self.shake_intensity, self.shake_intensity)
+
+            self.shake_timer -= 1
+        self.screen.blit(self.window, self.render_offset)
     def drawDebug(self):
         scale_x = self.pixel_width / self.world_width
         scale_y = self.pixel_height / self.world_height
-        for sprite in self.world.all_sprites:
-            pos = self.pointToScreen(pygame.Vector2(sprite.position.x, sprite.position.y))
-            sprite.setCameraPosition(
-                pos.x,
-                pos.y
-            )
-            if self.resize:
-                scaled_w = int(sprite.size.x * scale_x)
-                scaled_h = int(sprite.size.y * scale_y)
-                if isinstance(sprite, Entity) or isinstance(sprite, Particle):
-                    for i, animation in enumerate(sprite.animation_frames):
-                        for j, frame in enumerate(animation):
-                            animation[j] = pygame.transform.scale(frame, (scaled_w, scaled_h))
-                            sprite.animation_frames_flipped[i][j] = pygame.transform.flip(animation[j], True, False)
-                elif isinstance(sprite, Platform):
-                    sprite.image = pygame.transform.scale(sprite.source_image, (scaled_w, scaled_h))
-
-        self.world.all_sprites.update()
-        self.world.all_sprites.draw(self.window)
+        self.draw()
         for sprite in self.world.all_sprites:
             if isinstance(sprite, Entity):
                 hitbox_world_pos = pygame.Vector2(
@@ -1018,8 +1009,7 @@ class Camera:
                 screen_w = int(sprite.hitbox.w * scale_x)
                 screen_h = int(sprite.hitbox.h * scale_y)
                 temp_r = pygame.Rect(int(screen_pos.x), int(screen_pos.y), screen_w, screen_h)
-                pygame.draw.rect(self.window, (255, 0, 0), temp_r, width=3)
-        self.resize = False
+                pygame.draw.rect(self.screen, (255, 0, 0), temp_r, width=3)
 
         for db in self.world.damage_boxes:
             screen_pos = self.pointToScreen(pygame.Vector2(db.box.x, db.box.y))
@@ -1028,7 +1018,7 @@ class Camera:
             screen_h = int(db.box.height * scale_y)
 
             debug_rect = pygame.Rect(screen_pos.x, screen_pos.y, screen_w, screen_h)
-            pygame.draw.rect(self.window, (255, 0, 0), debug_rect, width=2)
+            pygame.draw.rect(self.screen, (255, 0, 0), debug_rect, width=2)
 
     def pointToScreen(self, point: pygame.Vector2) -> pygame.Vector2:
         offset_point = point - pygame.Vector2(self.x, self.y)
@@ -1087,6 +1077,7 @@ def main():
 
     pygame.display.set_caption("pygame")
 
+    display_canvas = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
     player = Player(0, 0, 0)
 
     plat10 = Platform(-118, 100, 1, "debug-platform-1024x32.png")
@@ -1100,13 +1091,13 @@ def main():
     world = World(player)
 
     world.addKitsune(kitsune)
-    
+
     world.addEnemy(enemy)
 
     world.addPlatform(plat10)
     world.addPlatform(plat2)
 
-    camera = Camera(-100, -100, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, window)
+    camera = Camera(-100, -100, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, display_canvas, window)
 
     # fonts and messages
     fontPath = os.path.join("assets", "Geist-Static.ttf")
@@ -1142,7 +1133,7 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-        window.fill((0, 0, 0))
+        display_canvas.fill((0, 0, 0))
         buttons = pygame.key.get_pressed()
 
 
@@ -1176,9 +1167,9 @@ def main():
             # main menu
 
             title_text = pixel_text("REMAINDER", base_font, 2)
-            window.blit(title_text, (WINDOW_WIDTH // 2 - title_text.get_width() // 2, 170))
+            display_canvas.blit(title_text, (WINDOW_WIDTH // 2 - title_text.get_width() // 2, 170))
             subtitle_text = pixel_text("A PyWeek 42 Entry", base_font)
-            window.blit(subtitle_text, (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, 170 + title_text.get_height()))
+            display_canvas.blit(subtitle_text, (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, 170 + title_text.get_height()))
             if perf_counter() - main_menu_at > just_title_time:
                 if buttons[pygame.K_DOWN] and perf_counter() - last_time_arrow_key_pressed > delay_between_two_presses:
                     current_option = (current_option + 1) % total_options
@@ -1193,40 +1184,44 @@ def main():
                         case 2:
                             running = False
                 start_text = pixel_text("Embark", base_font)
-                window.blit(start_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2, 400))
+                display_canvas.blit(start_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2, 400))
                 help_text = pixel_text("Controls", base_font)
-                window.blit(help_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2, 500))
+                display_canvas.blit(help_text, (WINDOW_WIDTH // 2 - start_text.get_width() // 2, 500))
                 exit_text = pixel_text("Depart", base_font)
-                window.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 600))
+                display_canvas.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 600))
 
-                pygame.draw.circle(window, (255,255,255), (850, 400 + start_text.get_height()//2 + current_option*100), 10)
+                minx = min(WINDOW_WIDTH // 2 - start_text.get_width() // 2, WINDOW_WIDTH // 2 - start_text.get_width() // 2, WINDOW_WIDTH // 2 - exit_text.get_width() // 2)
+                pygame.draw.circle(display_canvas, (255,255,255), (minx - 50, 400 + start_text.get_height()//2 + current_option*100), 10)
         if buttons[pygame.K_z] and main_menu_at == 0:
             time_finished = perf_counter() - (fadeaway_time + black_time + 1)
             total_char_index = 9999999999
         fps = int(clock.get_fps())
         fps_text = pixel_text(f"FPS: {fps}", base_font, color=pygame.Color(255,0,0))
-        window.blit(fps_text, (10, 10))
+        display_canvas.blit(fps_text, (10, 10))
         if time_finished==0 or perf_counter() - time_finished < 0:
             for i, t in enumerate(last_text):
                 message_text = pixel_text(f"{t}", base_font, 0.75)
-                window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*i))
+                display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*i))
             message_text = pixel_text(f"{current_text}", base_font, 0.75)
-            window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*len(last_text)))
+            display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*len(last_text)))
 
             exit_text = pixel_text("Press [Z] to skip", base_font, 0.75)
-            window.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 3*WINDOW_HEIGHT//4))
+            display_canvas.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 3*WINDOW_HEIGHT//4))
         elif perf_counter() - time_finished > 0 and perf_counter() - time_finished < fadeaway_time:
             dt = perf_counter() - time_finished
             dtClamped = (1 - dt/fadeaway_time)
             for i, t in enumerate(last_text):
                 message_text = pixel_text(f"{t}", base_font, 0.75, color=pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
-                window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*i))
+                display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*i))
             message_text = pixel_text(f"{current_text}", base_font, 0.75, color=pygame.Color(int(dtClamped * 255),int(dtClamped * 255),int(dtClamped * 255)))
-            window.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*len(last_text)))
+            display_canvas.blit(message_text, (WINDOW_WIDTH // 2 - message_text.get_width() // 2, 200 + 30*len(last_text)))
 
             exit_text = pixel_text("Press [Z] to skip", base_font, 0.75)
-            window.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 3*WINDOW_HEIGHT//4))
-
+            display_canvas.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 3*WINDOW_HEIGHT//4))
+        if buttons[pygame.K_SPACE]:
+            camera.screenShake(5, 60)
+        if main_menu:
+            window.blit(display_canvas, (0,0))
         pygame.display.flip()
 
         clock.tick(60)
