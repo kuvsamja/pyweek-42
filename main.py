@@ -1206,7 +1206,7 @@ def main():
                 window.blit(exit_text, (WINDOW_WIDTH // 2 - exit_text.get_width() // 2, 600))
 
                 pygame.draw.circle(window, (255,255,255), (850, 400 + start_text.get_height()//2 + current_option*100), 10)
-        if buttons[pygame.K_z]:
+        if buttons[pygame.K_z] and main_menu_at == 0:
             time_finished = perf_counter() - (fadeaway_time + black_time + 1)
             total_char_index = 9999999999
         fps = int(clock.get_fps())
