@@ -183,7 +183,7 @@ class Kitsune(Entity):
         self.head_clipping = False
         self.wall_to_left = False
         self.wall_to_right = False
-        self.facing_left = True
+        self.facing_left = False
 
         self.time_to_hit = 0
         self.hit_index = 0
@@ -260,10 +260,10 @@ class Kitsune(Entity):
     def getDB(self, index) -> DamageBox | None:
         match index:
             case 0:
-                box_x = (self.position.x - self.single_hit_box.width) if self.facing_left else (self.position.x + self.size.x)
+                box_x = (self.position.x + self.hitbox.x - self.single_hit_box.width) if self.facing_left else (self.position.x + self.hitbox.x + self.hitbox.w)
                 return DamageBox(
                     x=box_x,
-                    y=self.position.y + self.size.y / 2 - self.single_hit_box.height / 2,
+                    y=self.position.y + self.hitbox.h / 2 - self.single_hit_box.height / 2,
                     w=self.single_hit_box.width,
                     h=self.single_hit_box.height,
                     damage=self.single_hit_damage,
@@ -273,10 +273,10 @@ class Kitsune(Entity):
                     knockback_speed=-5 if self.facing_left else 5
                 )
             case 1:
-                box_x = (self.position.x - self.pierce_box.width) if self.facing_left else (self.position.x + self.size.x)
+                box_x = (self.position.x + self.hitbox.x - self.single_hit_box.width) if self.facing_left else (self.position.x + self.hitbox.x + self.hitbox.w)
                 return DamageBox(
                     x=box_x,
-                    y=self.position.y + self.size.y / 2 - self.pierce_box.height / 2,
+                    y=self.position.y + self.hitbox.h / 2 - self.pierce_box.height / 2,
                     w=self.pierce_box.width,
                     h=self.pierce_box.height,
                     damage=self.pierce_damage,
@@ -286,10 +286,10 @@ class Kitsune(Entity):
                     knockback_speed=-5 if self.facing_left else 5
                 )
             case 2:
-                box_x = (self.position.x - self.five_hits_box.width) if self.facing_left else (self.position.x + self.size.x)
+                box_x = (self.position.x + self.hitbox.x - self.single_hit_box.width) if self.facing_left else (self.position.x + self.hitbox.x + self.hitbox.w)
                 return DamageBox(
                     x=box_x,
-                    y=self.position.y + self.size.y / 2 - self.five_hits_box.height / 2,
+                    y=self.position.y + self.hitbox.h / 2 - self.five_hits_box.height / 2,
                     w=self.five_hits_box.width,
                     h=self.five_hits_box.height,
                     damage=self.five_hits_damage,
@@ -333,29 +333,21 @@ class Kitsune(Entity):
                 case 0: # TODO: fix this
                     if self.single_hit_duration - self.hit_timer in self.single_hit_timings:
                         db = self.getDB(self.hit)
-                        print(db)
                 case 1:
                     if self.pierce_duration - self.hit_timer in self.pierce_timings:
                         db = self.getDB(self.hit)
-                        print(db)
                 case 2:
                     if self.five_hits_duration - self.hit_timer in self.five_hits_timings:
                         db = self.getDB(self.hit)
-                        print(db)
                 case 3:
                     if self.projectiles_duration - self.hit_timer in self.projectile_timings:
                         db = self.getDB(self.hit)
-                        print(db)
         
         
         if db is not None:
             return [db]
         return []
-        
-        
-        
-        
-        
+
 
 
 
@@ -433,7 +425,7 @@ class Enemy(Entity):
 
         if self.head_clipping:
             self.speed.y = max(0, self.speed.y)
-        box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
+        box_x = (self.position.x + self.hitbox.x - self.sword_box_width) if self.facing_left else (self.position.x + self.hitbox.x + self.hitbox.w)
 
         dir = 0
         if self.hit_timer < 0:
@@ -449,15 +441,15 @@ class Enemy(Entity):
         if self.hit_timer >= 0:
             self.setAnimationState(self.AnimationState.S_HIT1)
             if self.hit_timer == int(self.hit_time / 2):
-                self.resetSwordParticle(box_x, self.position.y + self.size.y / 2 - self.sword_box_height / 2, 10)
+                self.resetSwordParticle(box_x, self.position.y + self.hitbox.h - self.sword_box_height / 2, 10)
                 db.append(
                     DamageBox(
                         x=box_x,
-                        y=self.position.y + self.size.y / 2 - self.sword_box_height / 2,
+                        y=self.position.y + self.hitbox.h - self.sword_box_height / 2,
                         w=self.sword_box_width,
                         h=self.sword_box_height,
                         damage=10,
-                        owner=DamageBox.Owner.SMALL_ENEMY,
+                        owner=DamageBox.Owner.PLAYER,
                         alive_time=5,
                         stun_time=10,
                         knockback_speed=-5 if self.facing_left else 5
@@ -660,8 +652,10 @@ class Player(Entity): # TODO: add movement
         db_list = []
         if buttons[pygame.K_x] and not self.buttons_last_frame[pygame.K_x] and self.sword_timer < 0: # TODO: add hit polling
 
-            box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
-            self.resetSwordParticle(box_x, self.position.y + self.size.y / 2 - self.sword_box_height / 2, 10)
+            box_x = (self.position.x + self.hitbox.x - self.sword_box_width) if self.facing_left else (self.position.x + self.hitbox.x + self.hitbox.w)
+
+            # box_x = (self.position.x - self.sword_box_width) if self.facing_left else (self.position.x + self.size.x)
+            self.resetSwordParticle(box_x, self.position.y + self.hitbox.h - self.sword_box_height / 2, 10)
             if self.sword_timer > -20:
 
                 self.swing_count += 1
@@ -675,7 +669,7 @@ class Player(Entity): # TODO: add movement
             db_list.append(
                 DamageBox(
                     x=box_x,
-                    y=self.position.y + self.size.y / 2 - self.sword_box_height / 2,
+                    y=self.position.y + self.hitbox.h - self.sword_box_height / 2,
                     w=self.sword_box_width,
                     h=self.sword_box_height,
                     damage=10,
