@@ -1,5 +1,6 @@
 import copy
 import os
+import random
 from enum import Enum, auto
 from time import perf_counter
 
@@ -62,6 +63,7 @@ class Entity(pygame.sprite.Sprite):
         S_HIT1 = auto()
         S_HIT2 = auto()
         S_HIT3 = auto()
+        S_HIT4 = auto()
         S_BLOCK = auto()
         S_RISE = auto()
         S_FALL = auto()
@@ -150,7 +152,6 @@ class Particle(Entity):
 
 
     def update(self):
-        print(self.lifetime)
         super().update()
         if self.lifetime >= 0:
             self.image = self.animation_frames[self.AnimationState.US_IDLE.value][0]
@@ -170,41 +171,82 @@ class Kitsune(Entity):
         self.dead = False
 
         # state stuff
-        self.hp = 100
+        self.hp = 1000
         self.knockback_speed = 0
-        self.knockback_drop = 0.2
+        self.knockback_drop = 1
 
         self.invincibility_timer = 0
         self.stun_timer = 0
-        self.is_hitting = False
-        self.hit_timer = 0
 
         self.grounded = False
         self.head_clipping = False
         self.wall_to_left = False
         self.wall_to_right = False
-        self.looking_right = True
+        self.facing_left = True
 
+        self.time_to_hit = 0
+        self.hit_index = 0
+        self.hit_timer = 0
+        self.is_hitting = False
+        
         # const parameters
-        self.run_speed = 1
-        self.gravity_acceleration = 0.8
+        self.run_speed = 0
+        self.gravity_acceleration = 0
         self.terminal_velocity = 10
         self.invincibility_duration = 10 # change for the boss
-        self.hit_time = 40
-        self.player_detection_dist = 200
-        self.player_hit_dist = 100
-        self.sword_box_width = 100
-        self.sword_box_height = 20
-        
-        self.sword_particle = Particle(
-            -1, # TODO: make this be as long as the swing animation
+
+        self.wait_between_hits = 1
+
+        self.single_hit_damage = 10
+        self.single_hit_duration = 100
+        self.single_hit_timings = [50]
+        self.single_hit_box = pygame.Rect(
             0,
             0,
-            self._layer,
-            self.sword_box_width,
-            self.sword_box_height,
-            "player_sword_swing"
+            30,
+            30,
         )
+        
+        self.pierce_damage = 10
+        self.pierce_duration = 100
+        self.pierce_timings = [50]
+        self.pierce_box = pygame.Rect(
+            0,
+            0,
+            30,
+            30,
+        )
+        
+        self.five_hits_damage = 10
+        self.five_hits_duration = 100
+        self.five_hits_timings = [10, 30, 50, 70, 90]
+        self.five_hits_box = pygame.Rect(
+            0,
+            0,
+            30,
+            30,
+        )
+        
+        self.projectile_damage = 10
+        self.projectiles_duration = 100
+        self.projectile_timings = [50]
+        self.projectile_box = pygame.Rect(
+            0,
+            0,
+            30,
+            30,
+        )
+
+        
+        self.hitbox.x = 0
+        self.hitbox.y = 0
+        self.hitbox.w = 96
+        self.hitbox.h = 96
+
+        self.arena_left = 0
+        self.arena_right = 700
+
+        
 
     def damage(self, damage_box: DamageBox): # TODO: finish this
         if self.invincibility_timer > 0: return
@@ -214,14 +256,105 @@ class Kitsune(Entity):
         self.stun_timer = damage_box.stun_time
         self.invincibility_timer = self.invincibility_duration
 
-    def resetSwordParticle(self, x, y, lifetime):
-        self.sword_particle.position.x = x
-        self.sword_particle.position.y = y
-        self.sword_particle.lifetime = lifetime
+    def getDB(self, index) -> DamageBox | None:
+        match index:
+            case 0:
+                box_x = (self.position.x - self.single_hit_box.width) if self.facing_left else (self.position.x + self.size.x)
+                return DamageBox(
+                    x=box_x,
+                    y=self.position.y + self.size.y / 2 - self.single_hit_box.height / 2,
+                    w=self.single_hit_box.width,
+                    h=self.single_hit_box.height,
+                    damage=self.single_hit_damage,
+                    owner=DamageBox.Owner.SMALL_ENEMY,
+                    alive_time=5,
+                    stun_time=0,
+                    knockback_speed=-5 if self.facing_left else 5
+                )
+            case 1:
+                box_x = (self.position.x - self.pierce_box.width) if self.facing_left else (self.position.x + self.size.x)
+                return DamageBox(
+                    x=box_x,
+                    y=self.position.y + self.size.y / 2 - self.pierce_box.height / 2,
+                    w=self.pierce_box.width,
+                    h=self.pierce_box.height,
+                    damage=self.pierce_damage,
+                    owner=DamageBox.Owner.SMALL_ENEMY,
+                    alive_time=5,
+                    stun_time=0,
+                    knockback_speed=-5 if self.facing_left else 5
+                )
+            case 2:
+                box_x = (self.position.x - self.five_hits_box.width) if self.facing_left else (self.position.x + self.size.x)
+                return DamageBox(
+                    x=box_x,
+                    y=self.position.y + self.size.y / 2 - self.five_hits_box.height / 2,
+                    w=self.five_hits_box.width,
+                    h=self.five_hits_box.height,
+                    damage=self.five_hits_damage,
+                    owner=DamageBox.Owner.SMALL_ENEMY,
+                    alive_time=5,
+                    stun_time=0,
+                    knockback_speed=-5 if self.facing_left else 5
+                )
+        
+        return None
+        
 
     def handle(self, player_x: float) -> list[DamageBox]:
         """updates the enemy"""
-        pass
+
+        
+        if self.hit_timer < 0:
+            self.setAnimationState(self.AnimationState.S_IDLE)
+            self.time_to_hit = (self.time_to_hit-1) % self.wait_between_hits
+        self.hit_timer -= 1
+
+        db = None
+        if self.time_to_hit == 0:
+            self.time_to_hit = -1
+            self.hit = random.randint(0, 3)
+            match self.hit:
+                case 0:
+                    self.hit_timer = self.single_hit_duration
+                    self.setAnimationState(self.AnimationState.S_HIT1)
+                case 1:
+                    self.hit_timer = self.pierce_duration
+                    self.setAnimationState(self.AnimationState.S_HIT2)
+                case 2:
+                    self.hit_timer = self.five_hits_duration
+                    self.setAnimationState(self.AnimationState.S_HIT3)
+                case 3:
+                    self.hit_timer = self.projectiles_duration
+                    self.setAnimationState(self.AnimationState.S_HIT4)
+        elif self.hit_timer > 0:
+            match self.hit:
+                case 0: # TODO: fix this
+                    if self.single_hit_duration - self.hit_timer in self.single_hit_timings:
+                        db = self.getDB(self.hit)
+                        print(db)
+                case 1:
+                    if self.pierce_duration - self.hit_timer in self.pierce_timings:
+                        db = self.getDB(self.hit)
+                        print(db)
+                case 2:
+                    if self.five_hits_duration - self.hit_timer in self.five_hits_timings:
+                        db = self.getDB(self.hit)
+                        print(db)
+                case 3:
+                    if self.projectiles_duration - self.hit_timer in self.projectile_timings:
+                        db = self.getDB(self.hit)
+                        print(db)
+        
+        
+        if db is not None:
+            return [db]
+        return []
+        
+        
+        
+        
+        
 
 
 
@@ -424,7 +557,6 @@ class Player(Entity): # TODO: add movement
         self.sword_particle.lifetime = lifetime
 
     def parryCallback(self, damage_box):
-        print("parry")
         self.invincibility_timer = self.invincibility_duration
         self.knockback_speed = damage_box.knockback_speed
 
@@ -432,7 +564,7 @@ class Player(Entity): # TODO: add movement
         if self.invincibility_timer > 0: return
         if self.parry_timer >= 0:
            self.parryCallback(damage_box)
-           return;
+           return
 
         self.hp -= damage_box.damage
         self.stun_timer = damage_box.stun_time
@@ -612,6 +744,7 @@ class World:
     enemies: list[Enemy]
     platforms: list[Platform]
     damage_boxes: list[DamageBox]
+    
     all_sprites: pygame.sprite.LayeredUpdates
 
     def __init__(self, player: Player):
@@ -630,7 +763,11 @@ class World:
         self.enemies.append(enemy)
         self.all_sprites.add(enemy)
         self.all_sprites.add(enemy.sword_particle)
-
+    def addKitsune(self, kitsune: Kitsune):
+        self.kitsune = kitsune
+        self.all_sprites.add(kitsune)
+        # self.all_sprites.add(kitsune.slash)
+        
     @staticmethod
     def entityPlatformCollision(platform: Platform, entity: Entity) -> bool:
         ex = entity.position.x + entity.hitbox.x
@@ -802,6 +939,7 @@ class World:
 
         for enemy in self.enemies: self.damage_boxes += enemy.handle(self.player.position.x)
         self.damage_boxes += self.player.handle(buttons)
+        self.damage_boxes += self.kitsune.handle(10)
 
 
         self.handleCollisions()
@@ -956,8 +1094,12 @@ def main():
 
     enemy = Enemy(-10, -100, 0, "dummy")
 
+    kitsune = Kitsune(200, 0, 0, "kitsune")
+
     world = World(player)
 
+    world.addKitsune(kitsune)
+    
     world.addEnemy(enemy)
 
     world.addPlatform(plat10)
@@ -990,6 +1132,7 @@ def main():
 
         window.fill((0, 0, 0))
         buttons = pygame.key.get_pressed()
+
 
         if total_char_index < MESSAGE1LEN:
             current_time = perf_counter()
