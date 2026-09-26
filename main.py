@@ -778,7 +778,9 @@ class Player(Entity): # TODO: add movement
 
 
         return db_list
-
+class Projectile:
+    position: pygame.Vector2
+    
 class World:
     frame_timer: int
     player: Player
@@ -1249,54 +1251,54 @@ def main():
                 controls_menu = False
             SPACING = 20
             prev_text = ""
-            subtitle_text = pixel_text("Guidance", base_font, 1.25)
-            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, WINDOW_HEIGHT // 8)
+            subtitle_text = pixel_text("Guidance", base_font, 1)
+            temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, WINDOW_HEIGHT // 32)
             prev_text = subtitle_text
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("Left/Right arrow to move", base_font, 0.75)
+            subtitle_text = pixel_text("Left/Right arrow to move", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
             prev_text = subtitle_text
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("L Shift to toggle the attacking stance", base_font, 0.75)
+            subtitle_text = pixel_text("L Shift to toggle the attacking stance", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
             prev_text = subtitle_text
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("Z to jump", base_font, 0.75)
+            subtitle_text = pixel_text("Z to jump", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
             prev_text = subtitle_text
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("X to attack (when stanced)", base_font, 0.75)
+            subtitle_text = pixel_text("X to attack (when stanced)", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
             prev_text = subtitle_text
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("C to block/parry enemy attack", base_font, 0.75)
+            subtitle_text = pixel_text("C to block/parry enemy attack", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("The goal of the game is to reach and kill the", base_font, 0.75)
+            subtitle_text = pixel_text("The goal of the game is to reach and kill the", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + 2 * SPACING)
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("fox (Kitsune) who eradicated all pandas from Japan.", base_font, 0.75)
+            subtitle_text = pixel_text("fox (Kitsune) who eradicated all pandas from Japan.", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("But beware, everyone's HP is degrading with time.", base_font, 0.75)
+            subtitle_text = pixel_text("But beware, everyone's HP is degrading with time.", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("When you hit an enemy you take some of it's time, and", base_font, 0.75)
+            subtitle_text = pixel_text("When you hit an enemy you take some of it's time, and", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("same goes vice versa. If you run out of time, you die.", base_font, 0.75)
+            subtitle_text = pixel_text("same goes vice versa. If you run out of time, you die.", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("Good luck and try to avenge your kind!", base_font, 0.75)
+            subtitle_text = pixel_text("Good luck and try to avenge your kind!", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, temp_pos[1] + prev_text.get_height() + SPACING)
             display_canvas.blit(subtitle_text, temp_pos)
-            subtitle_text = pixel_text("Press [ESC] to exit to main menu", base_font, 0.75)
+            subtitle_text = pixel_text("Press [ESC] to exit to main menu", base_font, 0.6)
             temp_pos = (WINDOW_WIDTH // 2 - subtitle_text.get_width() // 2, WINDOW_HEIGHT - subtitle_text.get_height() - SPACING)
             display_canvas.blit(subtitle_text, temp_pos)
         elif settings_menu:
             if buttons[pygame.K_ESCAPE]:
                 settings_menu = False
-            if buttons[pygame.K_RIGHT] and scaling < 3 and perf_counter() - last_time_arrow_key_pressed > delay_between_two_presses:
+            if buttons[pygame.K_RIGHT] and scaling < 6 and perf_counter() - last_time_arrow_key_pressed > delay_between_two_presses:
                 scaling += 0.5
                 last_time_arrow_key_pressed = perf_counter()
             if buttons[pygame.K_LEFT] and scaling > 1 and perf_counter() - last_time_arrow_key_pressed > delay_between_two_presses:
