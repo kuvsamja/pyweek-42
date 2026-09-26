@@ -568,14 +568,19 @@ class Player(Entity): # TODO: add movement
         if self.parry_timer >= 0:
            self.parryCallback(damage_box)
            return
-
+        if self.blocking:
+            self.hp -= damage_box.damage/2
+            self.screen_shake(1, 10)
+            return
         self.hp -= damage_box.damage
         self.stun_timer = damage_box.stun_time
         self.invincibility_timer = self.invincibility_duration
 
         self.knockback_speed = damage_box.knockback_speed
 
-        self.screen_shake(3, 40)
+        self.screen_shake(3, 10)
+
+
     def handleUnstanced(self, buttons) -> list[DamageBox]:
         self.setAnimationState(Entity.AnimationState.US_IDLE)
 
