@@ -342,8 +342,6 @@ class Kitsune(Entity):
                 case 3:
                     if self.projectiles_duration - self.hit_timer in self.projectile_timings:
                         db = self.getDB(self.hit)
-        
-        
         if db is not None:
             return [db]
         return []
@@ -540,6 +538,8 @@ class Player(Entity): # TODO: add movement
         self.stanced_jump_speed = 7
         self.stanced_jump_time = 5 # max time to hold a jump in frames
 
+    def setScreenShakeFunc(self, func):
+        self.screen_shake = func
     def resetSwordParticle(self, x, y, lifetime):
         self.sword_particle.position.x = x
         self.sword_particle.position.y = y
@@ -561,6 +561,7 @@ class Player(Entity): # TODO: add movement
 
         self.knockback_speed = damage_box.knockback_speed
 
+        self.screen_shake(3, 40)
     def handleUnstanced(self, buttons) -> list[DamageBox]:
         self.setAnimationState(Entity.AnimationState.US_IDLE)
 
@@ -1099,6 +1100,7 @@ def main():
 
     camera = Camera(-100, -100, 640, 360, WINDOW_WIDTH, WINDOW_HEIGHT, world, display_canvas, window)
 
+    player.setScreenShakeFunc(camera.screenShake)
     # fonts and messages
     fontPath = os.path.join("assets", "Geist-Static.ttf")
     base_font = pygame.font.Font(fontPath, 40)
